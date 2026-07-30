@@ -32,6 +32,15 @@ app:
 Cuando el backend se ejecuta desde la carpeta `backend`, esa ruta apunta a `backend/input`.
 La carpeta `backend/input` es local de pruebas y no se sube al repositorio.
 
+## Base de datos
+
+Ejecuta los scripts de la carpeta `database` en orden:
+
+```text
+001_create_database.sql
+002_create_processed_files.sql
+```
+
 ## Ejecutar
 
 ```powershell
@@ -44,6 +53,7 @@ mvn spring-boot:run
 - `GET /api/health`: valida que el backend esta levantado.
 - `GET /api/health/database`: valida la conexion con MySQL.
 - `GET /files/available`: lista los CSV disponibles en el directorio configurado.
+- `GET /files`: lista los archivos procesados registrados en MySQL.
 - `POST /files/process`: valida el archivo seleccionado antes de procesarlo.
 
 Ejemplo para validar un archivo:

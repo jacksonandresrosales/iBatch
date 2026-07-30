@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -16,8 +17,10 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.iroute.ibatch.application.usecase.ProcessedFileService;
 import com.iroute.ibatch.dto.response.AvailableFileResponse;
 import com.iroute.ibatch.dto.response.ProcessFileResponse;
+import com.iroute.ibatch.dto.response.ProcessedFileResponse;
 import com.iroute.ibatch.infrastructure.file.InputFileService;
 
 @WebMvcTest(FileController.class)
@@ -28,6 +31,34 @@ class FileControllerTest {
 
     @MockBean
     private InputFileService inputFileService;
+
+    @MockBean
+    private ProcessedFileService processedFileService;
+
+    @Test
+    void shouldReturnProcessedFiles() throws Exception {
+        var response = new ProcessedFileResponse(
+                1L,
+                "transactions_30072026.csv",
+                "PROCESADO",
+                10,
+                8,
+                2,
+                null,
+                LocalDateTime.parse("2026-07-30T18:50:00"),
+                LocalDateTime.parse("2026-07-30T18:55:00"));
+
+        when(processedFileService.findAll()).thenReturn(List.of(response));
+
+        mockMvc.perform(get("/files"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(1))
+                .andExpect(jsonPath("$[0].fileName").value("transactions_30072026.csv"))
+                .andExpect(jsonPath("$[0].status").value("PROCESADO"))
+                .andExpect(jsonPath("$[0].totalTransactions").value(10))
+                .andExpect(jsonPath("$[0].processedTransactions").value(8))
+                .andExpect(jsonPath("$[0].rejectedTransactions").value(2));
+    }
 
     @Test
     void shouldReturnAvailableFiles() throws Exception {
