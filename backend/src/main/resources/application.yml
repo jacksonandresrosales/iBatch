@@ -1,0 +1,15 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: ibatch-backend
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/ibatch?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
