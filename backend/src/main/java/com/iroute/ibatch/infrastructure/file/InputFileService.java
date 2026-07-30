@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import com.iroute.ibatch.config.FileStorageProperties;
 import com.iroute.ibatch.dto.response.AvailableFileResponse;
+import com.iroute.ibatch.dto.response.ProcessFileResponse;
 
 @Service
 public class InputFileService {
@@ -45,6 +46,28 @@ public class InputFileService {
         } catch (IOException exception) {
             throw new IllegalStateException("No se pudo leer el directorio de entrada", exception);
         }
+    }
+
+    public ProcessFileResponse validateFileForProcessing(String fileName) {
+        if (!TRANSACTIONS_FILE_PATTERN.matcher(fileName).matches()) {
+            throw new IllegalArgumentException("El archivo debe cumplir el formato transactions_DDMMYYYY.csv");
+        }
+
+        var inputDir = resolveInputDir();
+        var filePath = inputDir.resolve(fileName).normalize();
+
+        if (!filePath.startsWith(inputDir)) {
+            throw new IllegalArgumentException("El nombre del archivo no es valido");
+        }
+
+        if (!Files.isRegularFile(filePath)) {
+            throw new IllegalArgumentException("El archivo no existe en el directorio configurado");
+        }
+
+        return new ProcessFileResponse(
+                fileName,
+                "VALIDATED",
+                "Archivo validado para procesamiento");
     }
 
     private Path resolveInputDir() {

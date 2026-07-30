@@ -44,3 +44,12 @@ mvn spring-boot:run
 - `GET /api/health`: valida que el backend esta levantado.
 - `GET /api/health/database`: valida la conexion con MySQL.
 - `GET /files/available`: lista los CSV disponibles en el directorio configurado.
+- `POST /files/process`: valida el archivo seleccionado antes de procesarlo.
+
+Ejemplo para validar un archivo:
+
+```json
+{
+  "fileName": "transactions_31072026.csv"
+}
+```

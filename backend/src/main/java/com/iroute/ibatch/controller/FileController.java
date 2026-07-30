@@ -2,11 +2,17 @@ package com.iroute.ibatch.controller;
 
 import java.util.List;
 
+import jakarta.validation.Valid;
+
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.iroute.ibatch.dto.request.ProcessFileRequest;
 import com.iroute.ibatch.dto.response.AvailableFileResponse;
+import com.iroute.ibatch.dto.response.ProcessFileResponse;
 import com.iroute.ibatch.infrastructure.file.InputFileService;
 
 @RestController
@@ -22,5 +28,10 @@ public class FileController {
     @GetMapping("/available")
     public List<AvailableFileResponse> getAvailableFiles() {
         return inputFileService.findAvailableCsvFiles();
+    }
+
+    @PostMapping("/process")
+    public ProcessFileResponse processFile(@Valid @RequestBody ProcessFileRequest request) {
+        return inputFileService.validateFileForProcessing(request.fileName());
     }
 }
