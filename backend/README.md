@@ -19,6 +19,19 @@ $env:DB_PASSWORD=""
 $env:CORS_ALLOWED_ORIGINS="http://localhost:3000"
 ```
 
+## Directorio de archivos
+
+El backend lee los CSV desde el directorio configurado en `application.yml`:
+
+```yaml
+app:
+  files:
+    input-dir: input
+```
+
+Cuando el backend se ejecuta desde la carpeta `backend`, esa ruta apunta a `backend/input`.
+La carpeta `backend/input` es local de pruebas y no se sube al repositorio.
+
 ## Ejecutar
 
 ```powershell
@@ -30,3 +43,4 @@ mvn spring-boot:run
 
 - `GET /api/health`: valida que el backend esta levantado.
 - `GET /api/health/database`: valida la conexion con MySQL.
+- `GET /files/available`: lista los CSV disponibles en el directorio configurado.

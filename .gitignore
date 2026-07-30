@@ -1,6 +1,9 @@
 # Maven
 target/
 
+# Archivos locales de prueba
+backend/input/
+
 # Java
 *.class
 *.jar
