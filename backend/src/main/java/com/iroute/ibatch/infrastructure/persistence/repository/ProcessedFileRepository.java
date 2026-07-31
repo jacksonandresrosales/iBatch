@@ -101,6 +101,39 @@ public class ProcessedFileRepository {
         return keyHolder.getKeyAs(Long.class);
     }
 
+    public void updateFinished(Long fileId, int statusId, int totalRecords, int processedCount, int rejectedCount) {
+        var sql = """
+                UPDATE files
+                SET file_status_id = :statusId,
+                    total_records = :totalRecords,
+                    processed_count = :processedCount,
+                    rejected_count = :rejectedCount,
+                    finished_at = CURRENT_TIMESTAMP
+                WHERE file_id = :fileId
+                """;
+        var parameters = new MapSqlParameterSource()
+                .addValue("fileId", fileId)
+                .addValue("statusId", statusId)
+                .addValue("totalRecords", totalRecords)
+                .addValue("processedCount", processedCount)
+                .addValue("rejectedCount", rejectedCount);
+
+        namedParameterJdbcTemplate.update(sql, parameters);
+    }
+
+    public void updateError(Long fileId) {
+        var sql = """
+                UPDATE files
+                SET file_status_id = 5,
+                    finished_at = CURRENT_TIMESTAMP
+                WHERE file_id = :fileId
+                """;
+        var parameters = new MapSqlParameterSource()
+                .addValue("fileId", fileId);
+
+        namedParameterJdbcTemplate.update(sql, parameters);
+    }
+
     private ProcessedFile mapRow(ResultSet resultSet, int rowNumber) throws SQLException {
         return new ProcessedFile(
                 resultSet.getLong("id"),

@@ -4,5 +4,8 @@ public record ProcessFileResponse(
         Long fileId,
         String fileName,
         String status,
-        String message) {
+        String message,
+        int totalRecords,
+        int processedCount,
+        int rejectedCount) {
 }

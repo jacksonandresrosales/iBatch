@@ -86,8 +86,11 @@ class FileControllerTest {
         var response = new ProcessFileResponse(
                 1L,
                 "transactions_30072026.csv",
-                "PROCESANDO",
-                "Archivo registrado para procesamiento");
+                "PROCESADO",
+                "Archivo procesado correctamente",
+                2,
+                2,
+                0);
 
         when(fileProcessingService.registerFileForProcessing("transactions_30072026.csv")).thenReturn(response);
 
@@ -97,8 +100,11 @@ class FileControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.fileId").value(1))
                 .andExpect(jsonPath("$.fileName").value("transactions_30072026.csv"))
-                .andExpect(jsonPath("$.status").value("PROCESANDO"))
-                .andExpect(jsonPath("$.message").value("Archivo registrado para procesamiento"));
+                .andExpect(jsonPath("$.status").value("PROCESADO"))
+                .andExpect(jsonPath("$.message").value("Archivo procesado correctamente"))
+                .andExpect(jsonPath("$.totalRecords").value(2))
+                .andExpect(jsonPath("$.processedCount").value(2))
+                .andExpect(jsonPath("$.rejectedCount").value(0));
     }
 
     @Test

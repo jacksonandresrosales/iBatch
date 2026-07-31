@@ -54,12 +54,26 @@ mvn spring-boot:run
 - `GET /api/health/database`: valida la conexion con MySQL.
 - `GET /files/available`: lista los CSV disponibles en el directorio configurado.
 - `GET /files`: lista los archivos procesados registrados en MySQL.
-- `POST /files/process`: valida y registra el archivo seleccionado con estado `PROCESANDO`.
+- `POST /files/process`: valida, registra y procesa el archivo seleccionado.
 
 Ejemplo para validar un archivo:
 
 ```json
 {
   "fileName": "transactions_31072026.csv"
+}
+```
+
+Respuesta exitosa:
+
+```json
+{
+  "fileId": 1,
+  "fileName": "transactions_31072026.csv",
+  "status": "PROCESADO_CON_RECHAZOS",
+  "message": "Archivo procesado correctamente",
+  "totalRecords": 10,
+  "processedCount": 8,
+  "rejectedCount": 2
 }
 ```
