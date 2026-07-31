@@ -120,7 +120,7 @@ public class ProcessedFileRepository {
 
         namedParameterJdbcTemplate.update(sql, parameters, keyHolder, new String[] {"file_id"});
 
-        return keyHolder.getKeyAs(Long.class);
+        return getGeneratedId(keyHolder);
     }
 
     public void updateFinished(Long fileId, int statusId, int totalRecords, int processedCount, int rejectedCount) {
@@ -190,5 +190,15 @@ public class ProcessedFileRepository {
 
     private LocalDateTime toLocalDateTime(Timestamp timestamp) {
         return timestamp == null ? null : timestamp.toLocalDateTime();
+    }
+
+    private Long getGeneratedId(GeneratedKeyHolder keyHolder) {
+        var key = keyHolder.getKey();
+
+        if (key == null) {
+            throw new IllegalStateException("No se obtuvo el identificador generado");
+        }
+
+        return key.longValue();
     }
 }

@@ -99,7 +99,7 @@ public class TransactionRepository {
 
         namedParameterJdbcTemplate.update(sql, parameters, keyHolder, new String[] {"transaction_id"});
 
-        return keyHolder.getKeyAs(Long.class);
+        return getGeneratedId(keyHolder);
     }
 
     public List<ProcessedTransaction> findByFileId(Long fileId) {
@@ -329,5 +329,15 @@ public class TransactionRepository {
 
     private LocalDateTime toLocalDateTime(Timestamp timestamp) {
         return timestamp == null ? null : timestamp.toLocalDateTime();
+    }
+
+    private Long getGeneratedId(GeneratedKeyHolder keyHolder) {
+        var key = keyHolder.getKey();
+
+        if (key == null) {
+            throw new IllegalStateException("No se obtuvo el identificador generado");
+        }
+
+        return key.longValue();
     }
 }
