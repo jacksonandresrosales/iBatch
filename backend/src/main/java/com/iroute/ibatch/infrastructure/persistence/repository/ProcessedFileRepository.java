@@ -22,17 +22,19 @@ public class ProcessedFileRepository {
 
     public List<ProcessedFile> findAll() {
         var sql = """
-                SELECT id,
-                       file_name,
-                       status,
-                       total_transactions,
-                       processed_transactions,
-                       rejected_transactions,
-                       error_message,
-                       created_at,
-                       updated_at
-                FROM processed_files
-                ORDER BY created_at DESC, id DESC
+                SELECT f.file_id AS id,
+                       f.file_name,
+                       fs.code AS status,
+                       f.total_records AS total_transactions,
+                       f.processed_count AS processed_transactions,
+                       f.rejected_count AS rejected_transactions,
+                       NULL AS error_message,
+                       f.created_at,
+                       f.updated_at
+                FROM files f
+                INNER JOIN file_status fs
+                        ON fs.file_status_id = f.file_status_id
+                ORDER BY f.created_at DESC, f.file_id DESC
                 """;
 
         return jdbcTemplate.query(sql, this::mapRow);

@@ -38,7 +38,7 @@ Ejecuta los scripts de la carpeta `database` en orden:
 
 ```text
 001_create_database.sql
-002_create_processed_files.sql
+002_create_batch_processing_model.sql
 ```
 
 ## Ejecutar
