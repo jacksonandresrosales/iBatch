@@ -56,6 +56,7 @@ mvn spring-boot:run
 - `GET /files`: lista los archivos procesados registrados en MySQL.
 - `GET /files/{id}`: devuelve el detalle del archivo y sus transacciones.
 - `POST /files/process`: valida, registra y procesa el archivo seleccionado.
+- `POST /transactions/{id}`: edita el monto y reprocesa una transaccion rechazada.
 
 Ejemplo para validar un archivo:
 

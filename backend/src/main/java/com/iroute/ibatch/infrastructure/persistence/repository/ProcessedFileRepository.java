@@ -143,6 +143,25 @@ public class ProcessedFileRepository {
         namedParameterJdbcTemplate.update(sql, parameters);
     }
 
+    public void updateCounters(Long fileId, int statusId, int totalRecords, int processedCount, int rejectedCount) {
+        var sql = """
+                UPDATE files
+                SET file_status_id = :statusId,
+                    total_records = :totalRecords,
+                    processed_count = :processedCount,
+                    rejected_count = :rejectedCount
+                WHERE file_id = :fileId
+                """;
+        var parameters = new MapSqlParameterSource()
+                .addValue("fileId", fileId)
+                .addValue("statusId", statusId)
+                .addValue("totalRecords", totalRecords)
+                .addValue("processedCount", processedCount)
+                .addValue("rejectedCount", rejectedCount);
+
+        namedParameterJdbcTemplate.update(sql, parameters);
+    }
+
     public void updateError(Long fileId) {
         var sql = """
                 UPDATE files

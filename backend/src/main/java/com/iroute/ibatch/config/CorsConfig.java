@@ -24,6 +24,7 @@ public class CorsConfig implements WebMvcConfigurer {
         addFrontendCors(registry, "/api/**");
         addFrontendCors(registry, "/files");
         addFrontendCors(registry, "/files/**");
+        addFrontendCors(registry, "/transactions/**");
     }
 
     private void addFrontendCors(CorsRegistry registry, String pathPattern) {
