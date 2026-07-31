@@ -1,0 +1,204 @@
+package com.iroute.ibatch.infrastructure.persistence.repository;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.stereotype.Repository;
+
+import com.iroute.ibatch.domain.model.InputFileMetadata;
+import com.iroute.ibatch.domain.model.ProcessedFile;
+
+@Repository
+public class ProcessedFileRepository {
+
+    private final JdbcTemplate jdbcTemplate;
+    private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+
+    public ProcessedFileRepository(
+            JdbcTemplate jdbcTemplate,
+            NamedParameterJdbcTemplate namedParameterJdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
+    }
+
+    public List<ProcessedFile> findAll() {
+        var sql = """
+                SELECT f.file_id AS id,
+                       f.file_name,
+                       fs.code AS status,
+                       f.total_records AS total_transactions,
+                       f.processed_count AS processed_transactions,
+                       f.rejected_count AS rejected_transactions,
+                       NULL AS error_message,
+                       f.created_at,
+                       f.updated_at
+                FROM files f
+                INNER JOIN file_status fs
+                        ON fs.file_status_id = f.file_status_id
+                ORDER BY f.created_at DESC, f.file_id DESC
+                """;
+
+        return jdbcTemplate.query(sql, this::mapRow);
+    }
+
+    public Optional<ProcessedFile> findById(Long fileId) {
+        var sql = """
+                SELECT f.file_id AS id,
+                       f.file_name,
+                       fs.code AS status,
+                       f.total_records AS total_transactions,
+                       f.processed_count AS processed_transactions,
+                       f.rejected_count AS rejected_transactions,
+                       NULL AS error_message,
+                       f.created_at,
+                       f.updated_at
+                FROM files f
+                INNER JOIN file_status fs
+                        ON fs.file_status_id = f.file_status_id
+                WHERE f.file_id = ?
+                """;
+        var files = jdbcTemplate.query(sql, this::mapRow, fileId);
+
+        return files.stream().findFirst();
+    }
+
+    public Set<String> findRegisteredFileNames() {
+        var sql = """
+                SELECT file_name
+                FROM files
+                WHERE record_status_id = 1
+                """;
+
+        return new HashSet<>(jdbcTemplate.queryForList(sql, String.class));
+    }
+
+    public boolean existsByFileName(String fileName) {
+        var sql = """
+                SELECT COUNT(1)
+                FROM files
+                WHERE file_name = ?
+                """;
+
+        var count = jdbcTemplate.queryForObject(sql, Integer.class, fileName);
+
+        return count != null && count > 0;
+    }
+
+    public Long saveProcessing(InputFileMetadata inputFile) {
+        var sql = """
+                INSERT INTO files (
+                    file_name,
+                    original_path,
+                    file_date,
+                    file_status_id,
+                    started_at,
+                    record_status_id
+                ) VALUES (
+                    :fileName,
+                    :originalPath,
+                    :fileDate,
+                    2,
+                    CURRENT_TIMESTAMP,
+                    1
+                )
+                """;
+        var parameters = new MapSqlParameterSource()
+                .addValue("fileName", inputFile.fileName())
+                .addValue("originalPath", inputFile.originalPath())
+                .addValue("fileDate", inputFile.fileDate());
+        var keyHolder = new GeneratedKeyHolder();
+
+        namedParameterJdbcTemplate.update(sql, parameters, keyHolder, new String[] {"file_id"});
+
+        return getGeneratedId(keyHolder);
+    }
+
+    public void updateFinished(Long fileId, int statusId, int totalRecords, int processedCount, int rejectedCount) {
+        var sql = """
+                UPDATE files
+                SET file_status_id = :statusId,
+                    total_records = :totalRecords,
+                    processed_count = :processedCount,
+                    rejected_count = :rejectedCount,
+                    finished_at = CURRENT_TIMESTAMP
+                WHERE file_id = :fileId
+                """;
+        var parameters = new MapSqlParameterSource()
+                .addValue("fileId", fileId)
+                .addValue("statusId", statusId)
+                .addValue("totalRecords", totalRecords)
+                .addValue("processedCount", processedCount)
+                .addValue("rejectedCount", rejectedCount);
+
+        namedParameterJdbcTemplate.update(sql, parameters);
+    }
+
+    public void updateCounters(Long fileId, int statusId, int totalRecords, int processedCount, int rejectedCount) {
+        var sql = """
+                UPDATE files
+                SET file_status_id = :statusId,
+                    total_records = :totalRecords,
+                    processed_count = :processedCount,
+                    rejected_count = :rejectedCount
+                WHERE file_id = :fileId
+                """;
+        var parameters = new MapSqlParameterSource()
+                .addValue("fileId", fileId)
+                .addValue("statusId", statusId)
+                .addValue("totalRecords", totalRecords)
+                .addValue("processedCount", processedCount)
+                .addValue("rejectedCount", rejectedCount);
+
+        namedParameterJdbcTemplate.update(sql, parameters);
+    }
+
+    public void updateError(Long fileId) {
+        var sql = """
+                UPDATE files
+                SET file_status_id = 5,
+                    finished_at = CURRENT_TIMESTAMP
+                WHERE file_id = :fileId
+                """;
+        var parameters = new MapSqlParameterSource()
+                .addValue("fileId", fileId);
+
+        namedParameterJdbcTemplate.update(sql, parameters);
+    }
+
+    private ProcessedFile mapRow(ResultSet resultSet, int rowNumber) throws SQLException {
+        return new ProcessedFile(
+                resultSet.getLong("id"),
+                resultSet.getString("file_name"),
+                resultSet.getString("status"),
+                resultSet.getInt("total_transactions"),
+                resultSet.getInt("processed_transactions"),
+                resultSet.getInt("rejected_transactions"),
+                resultSet.getString("error_message"),
+                toLocalDateTime(resultSet.getTimestamp("created_at")),
+                toLocalDateTime(resultSet.getTimestamp("updated_at")));
+    }
+
+    private LocalDateTime toLocalDateTime(Timestamp timestamp) {
+        return timestamp == null ? null : timestamp.toLocalDateTime();
+    }
+
+    private Long getGeneratedId(GeneratedKeyHolder keyHolder) {
+        var key = keyHolder.getKey();
+
+        if (key == null) {
+            throw new IllegalStateException("No se obtuvo el identificador generado");
+        }
+
+        return key.longValue();
+    }
+}

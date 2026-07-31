@@ -1,0 +1,25 @@
+# Maven
+target/
+
+# Archivos locales de prueba
+backend/input/
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+
+# Entorno local
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
