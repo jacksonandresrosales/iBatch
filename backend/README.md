@@ -54,6 +54,7 @@ mvn spring-boot:run
 - `GET /api/health/database`: valida la conexion con MySQL.
 - `GET /files/available`: lista los CSV disponibles en el directorio configurado.
 - `GET /files`: lista los archivos procesados registrados en MySQL.
+- `GET /files/{id}`: devuelve el detalle del archivo y sus transacciones.
 - `POST /files/process`: valida, registra y procesa el archivo seleccionado.
 
 Ejemplo para validar un archivo:

@@ -6,6 +6,7 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -48,6 +49,27 @@ public class ProcessedFileRepository {
                 """;
 
         return jdbcTemplate.query(sql, this::mapRow);
+    }
+
+    public Optional<ProcessedFile> findById(Long fileId) {
+        var sql = """
+                SELECT f.file_id AS id,
+                       f.file_name,
+                       fs.code AS status,
+                       f.total_records AS total_transactions,
+                       f.processed_count AS processed_transactions,
+                       f.rejected_count AS rejected_transactions,
+                       NULL AS error_message,
+                       f.created_at,
+                       f.updated_at
+                FROM files f
+                INNER JOIN file_status fs
+                        ON fs.file_status_id = f.file_status_id
+                WHERE f.file_id = ?
+                """;
+        var files = jdbcTemplate.query(sql, this::mapRow, fileId);
+
+        return files.stream().findFirst();
     }
 
     public Set<String> findRegisteredFileNames() {

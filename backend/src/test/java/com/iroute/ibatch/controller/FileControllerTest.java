@@ -21,8 +21,11 @@ import com.iroute.ibatch.application.usecase.AvailableFileService;
 import com.iroute.ibatch.application.usecase.FileProcessingService;
 import com.iroute.ibatch.application.usecase.ProcessedFileService;
 import com.iroute.ibatch.dto.response.AvailableFileResponse;
+import com.iroute.ibatch.dto.response.FileDetailResponse;
 import com.iroute.ibatch.dto.response.ProcessFileResponse;
 import com.iroute.ibatch.dto.response.ProcessedFileResponse;
+import com.iroute.ibatch.dto.response.TransactionDetailResponse;
+import com.iroute.ibatch.dto.response.TransactionRejectionResponse;
 
 @WebMvcTest(FileController.class)
 class FileControllerTest {
@@ -79,6 +82,49 @@ class FileControllerTest {
                 .andExpect(jsonPath("$[0].fileName").value("transactions_30072026.csv"))
                 .andExpect(jsonPath("$[0].sizeBytes").value(1024))
                 .andExpect(jsonPath("$[0].expectedFormat").value(true));
+    }
+
+    @Test
+    void shouldReturnProcessedFileDetail() throws Exception {
+        var file = new ProcessedFileResponse(
+                1L,
+                "transactions_30072026.csv",
+                "PROCESADO_CON_RECHAZOS",
+                2,
+                1,
+                1,
+                null,
+                LocalDateTime.parse("2026-07-30T18:50:00"),
+                LocalDateTime.parse("2026-07-30T18:55:00"));
+        var rejection = new TransactionRejectionResponse(
+                100L,
+                "MONTO_INVALIDO",
+                "Monto invalido",
+                "El monto debe ser un valor monetario valido",
+                LocalDateTime.parse("2026-07-30T18:52:00"));
+        var transaction = new TransactionDetailResponse(
+                10L,
+                2,
+                "2000000000",
+                "xyz",
+                "31/07/2026",
+                "2000000000",
+                null,
+                null,
+                "RECHAZADA",
+                List.of(rejection),
+                LocalDateTime.parse("2026-07-30T18:51:00"),
+                LocalDateTime.parse("2026-07-30T18:52:00"));
+
+        when(processedFileService.findDetailById(1L)).thenReturn(new FileDetailResponse(file, List.of(transaction)));
+
+        mockMvc.perform(get("/files/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.file.id").value(1))
+                .andExpect(jsonPath("$.file.status").value("PROCESADO_CON_RECHAZOS"))
+                .andExpect(jsonPath("$.transactions[0].transactionId").value(10))
+                .andExpect(jsonPath("$.transactions[0].status").value("RECHAZADA"))
+                .andExpect(jsonPath("$.transactions[0].rejections[0].reasonCode").value("MONTO_INVALIDO"));
     }
 
     @Test

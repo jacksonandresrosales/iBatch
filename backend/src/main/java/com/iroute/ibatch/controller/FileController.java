@@ -5,6 +5,7 @@ import java.util.List;
 import jakarta.validation.Valid;
 
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,6 +15,7 @@ import com.iroute.ibatch.application.usecase.AvailableFileService;
 import com.iroute.ibatch.application.usecase.FileProcessingService;
 import com.iroute.ibatch.dto.request.ProcessFileRequest;
 import com.iroute.ibatch.dto.response.AvailableFileResponse;
+import com.iroute.ibatch.dto.response.FileDetailResponse;
 import com.iroute.ibatch.dto.response.ProcessFileResponse;
 import com.iroute.ibatch.dto.response.ProcessedFileResponse;
 import com.iroute.ibatch.application.usecase.ProcessedFileService;
@@ -38,6 +40,11 @@ public class FileController {
     @GetMapping
     public List<ProcessedFileResponse> getProcessedFiles() {
         return processedFileService.findAll();
+    }
+
+    @GetMapping("/{id}")
+    public FileDetailResponse getProcessedFileDetail(@PathVariable Long id) {
+        return processedFileService.findDetailById(id);
     }
 
     @GetMapping("/available")
