@@ -5,6 +5,14 @@ import AppHeader from "../components/AppHeader";
 
 type HistoryStatus = "PROCESADO" | "PROCESADO_CON_RECHAZOS" | "ERROR";
 
+type RejectedTransaction = {
+  id: string;
+  account: string;
+  date: string;
+  amount: number;
+  reason: string;
+};
+
 type ProcessedFile = {
   id: string;
   name: string;
@@ -14,8 +22,26 @@ type ProcessedFile = {
   processed: number;
   rejected: number;
   status: HistoryStatus;
+  rejectedTransactions: RejectedTransaction[];
   errorDetail?: string;
 };
+
+function createRejectedTransactions(fileId: string, count: number) {
+  const reasons = [
+    "Transacción duplicada",
+    "Cuenta inválida",
+    "Monto inválido",
+    "Fecha inválida",
+  ];
+
+  return Array.from({ length: count }, (_, index) => ({
+    id: `${fileId}-rejected-${index + 1}`,
+    account: `2200${String(4812 + index).padStart(6, "0")}`,
+    date: `30/07/2026`,
+    amount: Number((185.4 + index * 42.75).toFixed(2)),
+    reason: reasons[index % reasons.length],
+  }));
+}
 
 const initialHistory: ProcessedFile[] = [
   {
@@ -27,6 +53,7 @@ const initialHistory: ProcessedFile[] = [
     processed: 9950,
     rejected: 10,
     status: "PROCESADO_CON_RECHAZOS",
+    rejectedTransactions: createRejectedTransactions("batch-30072026", 10),
   },
   {
     id: "batch-29072026",
@@ -37,6 +64,7 @@ const initialHistory: ProcessedFile[] = [
     processed: 12430,
     rejected: 0,
     status: "PROCESADO",
+    rejectedTransactions: [],
   },
   {
     id: "batch-28072026",
@@ -47,6 +75,7 @@ const initialHistory: ProcessedFile[] = [
     processed: 0,
     rejected: 0,
     status: "ERROR",
+    rejectedTransactions: [],
     errorDetail: "Encabezado inválido",
   },
   {
@@ -58,6 +87,7 @@ const initialHistory: ProcessedFile[] = [
     processed: 8184,
     rejected: 16,
     status: "PROCESADO_CON_RECHAZOS",
+    rejectedTransactions: createRejectedTransactions("batch-27072026", 16),
   },
   {
     id: "batch-26072026",
@@ -68,6 +98,7 @@ const initialHistory: ProcessedFile[] = [
     processed: 7650,
     rejected: 0,
     status: "PROCESADO",
+    rejectedTransactions: [],
   },
 ];
 
@@ -95,8 +126,15 @@ export default function ProcessedFilesPage() {
     "TODOS",
   );
   const [notice, setNotice] = useState<string | null>(null);
+  const [isReprocessOpen, setIsReprocessOpen] = useState(false);
+  const [selectedRejectedId, setSelectedRejectedId] = useState("");
+  const [replacementAmount, setReplacementAmount] = useState("");
+  const [isReprocessing, setIsReprocessing] = useState(false);
 
   const selectedFile = files.find((file) => file.id === selectedId) ?? null;
+  const selectedRejectedTransaction = selectedFile?.rejectedTransactions.find(
+    (transaction) => transaction.id === selectedRejectedId,
+  ) ?? null;
   const visibleFiles = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return files.filter((file) => {
@@ -123,6 +161,54 @@ export default function ProcessedFilesPage() {
   const refreshHistory = () => {
     setFiles([...initialHistory]);
     setNotice("Historial actualizado. Se muestran los últimos registros.");
+  };
+
+  const openReprocessModal = () => {
+    if (!selectedFile?.rejectedTransactions.length) return;
+    const firstRejected = selectedFile.rejectedTransactions[0];
+    setSelectedRejectedId(firstRejected.id);
+    setReplacementAmount(firstRejected.amount.toFixed(2));
+    setNotice(null);
+    setIsReprocessOpen(true);
+  };
+
+  const selectRejectedTransaction = (transaction: RejectedTransaction) => {
+    setSelectedRejectedId(transaction.id);
+    setReplacementAmount(transaction.amount.toFixed(2));
+  };
+
+  const reprocessTransaction = () => {
+    if (!selectedFile || !selectedRejectedTransaction) return;
+
+    const normalizedAmount = Number(replacementAmount.replace(",", "."));
+    if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+      setNotice("Ingrese un monto válido mayor que cero para reprocesar.");
+      return;
+    }
+
+    setIsReprocessing(true);
+    window.setTimeout(() => {
+      setFiles((currentFiles) =>
+        currentFiles.map((file) => {
+          if (file.id !== selectedFile.id) return file;
+          const nextRejected = file.rejected - 1;
+          return {
+            ...file,
+            processed: file.processed + 1,
+            rejected: nextRejected,
+            status: nextRejected > 0 ? "PROCESADO_CON_RECHAZOS" : "PROCESADO",
+            rejectedTransactions: file.rejectedTransactions.filter(
+              (transaction) => transaction.id !== selectedRejectedTransaction.id,
+            ),
+          };
+        }),
+      );
+      setIsReprocessing(false);
+      setIsReprocessOpen(false);
+      setNotice(
+        `Reproceso registrado para ${selectedFile.name}. El nuevo monto es ${normalizedAmount.toFixed(2)}.`,
+      );
+    }, 450);
   };
 
   return (
@@ -326,6 +412,15 @@ export default function ProcessedFilesPage() {
                     rechazadas
                   </span>
                 </div>
+                {selectedFile.rejectedTransactions.length > 0 ? (
+                  <button
+                    type="button"
+                    className="secondary-button history-reprocess-button"
+                    onClick={openReprocessModal}
+                  >
+                    Revisar y reprocesar rechazos
+                  </button>
+                ) : null}
               </div>
             ) : (
               <div className="selected-file-card__empty">
@@ -335,6 +430,89 @@ export default function ProcessedFilesPage() {
             )}
           </aside>
         </section>
+
+        {isReprocessOpen && selectedFile ? (
+          <div
+            className="modal-backdrop"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget && !isReprocessing) {
+                setIsReprocessOpen(false);
+              }
+            }}
+          >
+            <section
+              className="confirmation-modal reprocess-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="reprocess-title"
+            >
+              <div className="modal-accent" />
+              <p className="eyebrow">Reproceso controlado</p>
+              <h2 id="reprocess-title">Editar monto rechazado</h2>
+              <p>
+                Corrija únicamente el monto de la transacción seleccionada y envíela nuevamente a validación.
+              </p>
+
+              <div className="reprocess-context">
+                <span>Archivo</span>
+                <strong>{selectedFile.name}</strong>
+              </div>
+
+              <div className="rejected-transaction-list" aria-label="Transacciones rechazadas">
+                {selectedFile.rejectedTransactions.map((transaction) => (
+                  <button
+                    type="button"
+                    key={transaction.id}
+                    className={`rejected-transaction-option ${transaction.id === selectedRejectedId ? "is-selected" : ""}`}
+                    onClick={() => selectRejectedTransaction(transaction)}
+                    disabled={isReprocessing}
+                  >
+                    <span>
+                      <strong>{transaction.account}</strong>
+                      <small>{transaction.date} · {transaction.reason}</small>
+                    </span>
+                    <strong>{transaction.amount.toFixed(2)}</strong>
+                  </button>
+                ))}
+              </div>
+
+              {selectedRejectedTransaction ? (
+                <label className="amount-field">
+                  <span>Nuevo monto</span>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={replacementAmount}
+                    onChange={(event) => setReplacementAmount(event.target.value)}
+                    disabled={isReprocessing}
+                  />
+                  <small>Ingrese un valor mayor que cero.</small>
+                </label>
+              ) : null}
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setIsReprocessOpen(false)}
+                  disabled={isReprocessing}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={reprocessTransaction}
+                  disabled={isReprocessing || !selectedRejectedTransaction}
+                >
+                  {isReprocessing ? "Procesando..." : "Confirmar reproceso"}
+                </button>
+              </div>
+            </section>
+          </div>
+        ) : null}
 
         <footer className="product-footer">
           <span>iBatch Financial Operations</span>

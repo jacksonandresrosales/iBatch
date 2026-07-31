@@ -643,6 +643,13 @@ h1 {
   font-size: 17px;
 }
 
+.history-reprocess-button {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 12px;
+  font-size: 11px;
+}
+
 .metric-trend {
   font-size: 10px;
   font-weight: 650;
@@ -1345,6 +1352,122 @@ input[type="radio"] {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.reprocess-modal {
+  width: min(620px, 100%);
+}
+
+.reprocess-context {
+  margin-top: 22px;
+  padding: 12px 14px;
+  display: grid;
+  gap: 5px;
+  border-left: 3px solid var(--teal-600);
+  background: var(--ink-050);
+}
+
+.reprocess-context span {
+  color: var(--ink-500);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.reprocess-context strong {
+  overflow-wrap: anywhere;
+  color: var(--ink-900);
+  font-family: Consolas, "SFMono-Regular", monospace;
+  font-size: 11px;
+}
+
+.rejected-transaction-list {
+  max-height: 210px;
+  margin: 18px 0;
+  overflow-y: auto;
+  border-top: 1px solid var(--ink-200);
+  border-bottom: 1px solid var(--ink-200);
+}
+
+.rejected-transaction-option {
+  width: 100%;
+  min-height: 58px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 0;
+  border-bottom: 1px solid var(--ink-100);
+  background: var(--white);
+  color: var(--ink-900);
+  cursor: pointer;
+  text-align: left;
+}
+
+.rejected-transaction-option:last-child {
+  border-bottom: 0;
+}
+
+.rejected-transaction-option:hover,
+.rejected-transaction-option.is-selected {
+  background: #f4f9f8;
+}
+
+.rejected-transaction-option > span {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.rejected-transaction-option > span strong {
+  color: var(--ink-900);
+  font-family: Consolas, "SFMono-Regular", monospace;
+  font-size: 11px;
+}
+
+.rejected-transaction-option small {
+  overflow: hidden;
+  color: var(--ink-500);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rejected-transaction-option > strong {
+  color: var(--ink-900);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.amount-field {
+  display: grid;
+  gap: 6px;
+}
+
+.amount-field > span {
+  color: var(--ink-500);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.amount-field input {
+  width: 100%;
+  height: 41px;
+  padding: 0 12px;
+  border: 1px solid var(--ink-300);
+  border-radius: 0;
+  background: var(--white);
+  color: var(--ink-950);
+  font-size: 14px;
+}
+
+.amount-field small {
+  color: var(--ink-500);
+  font-size: 10px;
 }
 
 @media (max-width: 1120px) {
