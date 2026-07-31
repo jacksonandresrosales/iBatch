@@ -109,7 +109,9 @@ export default function AvailableFilesPage() {
           <a className="nav-link" href="/files">
             Historial
           </a>
-          <span className="nav-link nav-link--disabled">Dashboard</span>
+          <a className="nav-link" href="/dashboard">
+            Dashboard
+          </a>
         </nav>
 
         <div className="environment-status" aria-label="Estado del sistema">

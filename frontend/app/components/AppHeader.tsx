@@ -1,4 +1,4 @@
-type ActiveNavigation = "operations" | "history";
+type ActiveNavigation = "operations" | "history" | "dashboard";
 
 type AppHeaderProps = {
   active: ActiveNavigation;
@@ -32,7 +32,12 @@ export default function AppHeader({ active }: AppHeaderProps) {
         >
           Historial
         </a>
-        <span className="nav-link nav-link--disabled">Dashboard</span>
+        <a
+          className={`nav-link ${active === "dashboard" ? "nav-link--active" : ""}`}
+          href="/dashboard"
+        >
+          Dashboard
+        </a>
       </nav>
 
       <div className="environment-status" aria-label="Estado del sistema">

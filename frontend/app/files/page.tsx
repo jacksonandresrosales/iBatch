@@ -81,7 +81,15 @@ function statusLabel(status: HistoryStatus) {
 
 export default function ProcessedFilesPage() {
   const [files, setFiles] = useState(initialHistory);
-  const [selectedId, setSelectedId] = useState(initialHistory[0]?.id ?? "");
+  const [selectedId, setSelectedId] = useState(() => {
+    if (typeof window !== "undefined") {
+      const requestedId = new URLSearchParams(window.location.search).get("selected");
+      if (requestedId && initialHistory.some((file) => file.id === requestedId)) {
+        return requestedId;
+      }
+    }
+    return initialHistory[0]?.id ?? "";
+  });
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"TODOS" | HistoryStatus>(
     "TODOS",
