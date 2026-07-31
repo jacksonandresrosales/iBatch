@@ -112,6 +112,9 @@ export default function AvailableFilesPage() {
           <a className="nav-link" href="/dashboard">
             Dashboard
           </a>
+          <a className="nav-link" href="/audit">
+            Auditoría
+          </a>
         </nav>
 
         <div className="environment-status" aria-label="Estado del sistema">

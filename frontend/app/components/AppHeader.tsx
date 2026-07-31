@@ -1,4 +1,4 @@
-type ActiveNavigation = "operations" | "history" | "dashboard";
+type ActiveNavigation = "operations" | "history" | "dashboard" | "audit";
 
 type AppHeaderProps = {
   active: ActiveNavigation;
@@ -37,6 +37,12 @@ export default function AppHeader({ active }: AppHeaderProps) {
           href="/dashboard"
         >
           Dashboard
+        </a>
+        <a
+          className={`nav-link ${active === "audit" ? "nav-link--active" : ""}`}
+          href="/audit"
+        >
+          Auditoría
         </a>
       </nav>
 
