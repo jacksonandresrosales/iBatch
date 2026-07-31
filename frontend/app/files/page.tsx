@@ -13,6 +13,15 @@ type RejectedTransaction = {
   reason: string;
 };
 
+type FileTransaction = {
+  id: string;
+  account: string;
+  date: string;
+  amount: number;
+  status: "PROCESADO" | "RECHAZADA";
+  rejectionReason?: string;
+};
+
 type ProcessedFile = {
   id: string;
   name: string;
@@ -110,6 +119,36 @@ function statusLabel(status: HistoryStatus) {
   return "Procesado";
 }
 
+function canReprocess(reason: string) {
+  return reason === "Monto inválido";
+}
+
+function transactionSample(file: ProcessedFile): FileTransaction[] {
+  const acceptedTransactions: FileTransaction[] = Array.from(
+    { length: Math.min(64, file.processed) },
+    (_, index) => ({
+      id: `${file.id}-processed-${index + 1}`,
+      account: `2200${String(1200 + index).padStart(6, "0")}`,
+      date: file.batchDate.replace(" jul 2026", "/07/2026"),
+      amount: Number((420.5 + index * 85.25).toFixed(2)),
+      status: "PROCESADO",
+    }),
+  );
+
+  const rejectedTransactions: FileTransaction[] = file.rejectedTransactions
+    .slice(0, 6)
+    .map((transaction) => ({
+      id: transaction.id,
+      account: transaction.account,
+      date: transaction.date,
+      amount: transaction.amount,
+      status: "RECHAZADA",
+      rejectionReason: transaction.reason,
+    }));
+
+  return [...acceptedTransactions, ...rejectedTransactions];
+}
+
 export default function ProcessedFilesPage() {
   const [files, setFiles] = useState(initialHistory);
   const [selectedId, setSelectedId] = useState(() => {
@@ -130,8 +169,15 @@ export default function ProcessedFilesPage() {
   const [selectedRejectedId, setSelectedRejectedId] = useState("");
   const [replacementAmount, setReplacementAmount] = useState("");
   const [isReprocessing, setIsReprocessing] = useState(false);
+  const [detailFileId, setDetailFileId] = useState<string | null>(null);
+  const [detailTab, setDetailTab] = useState<"summary" | "transactions">(
+    "transactions",
+  );
+  const [transactionPage, setTransactionPage] = useState(1);
+  const [transactionPageSize, setTransactionPageSize] = useState<25 | 50>(25);
 
   const selectedFile = files.find((file) => file.id === selectedId) ?? null;
+  const detailFile = files.find((file) => file.id === detailFileId) ?? null;
   const selectedRejectedTransaction = selectedFile?.rejectedTransactions.find(
     (transaction) => transaction.id === selectedRejectedId,
   ) ?? null;
@@ -157,15 +203,46 @@ export default function ProcessedFilesPage() {
   const rejectionRate = totalTransactions
     ? ((rejectedTransactions / totalTransactions) * 100).toFixed(2)
     : "0.00";
+  const detailTransactions = detailFile ? transactionSample(detailFile) : [];
+  const detailPageCount = Math.max(
+    1,
+    Math.ceil(detailTransactions.length / transactionPageSize),
+  );
+  const currentTransactionPage = Math.min(transactionPage, detailPageCount);
+  const paginatedDetailTransactions = detailTransactions.slice(
+    (currentTransactionPage - 1) * transactionPageSize,
+    currentTransactionPage * transactionPageSize,
+  );
+  const detailReasonCounts = detailFile
+    ? Object.entries(
+        detailFile.rejectedTransactions.reduce<Record<string, number>>(
+          (counts, transaction) => {
+            counts[transaction.reason] = (counts[transaction.reason] ?? 0) + 1;
+            return counts;
+          },
+          {},
+        ),
+      )
+    : [];
 
   const refreshHistory = () => {
     setFiles([...initialHistory]);
     setNotice("Historial actualizado. Se muestran los últimos registros.");
   };
 
+  const openFileDetail = (fileId: string) => {
+    setSelectedId(fileId);
+    setDetailFileId(fileId);
+    setDetailTab("transactions");
+    setTransactionPage(1);
+  };
+
   const openReprocessModal = () => {
-    if (!selectedFile?.rejectedTransactions.length) return;
-    const firstRejected = selectedFile.rejectedTransactions[0];
+    const eligibleRejected = selectedFile?.rejectedTransactions.filter(
+      (transaction) => canReprocess(transaction.reason),
+    ) ?? [];
+    if (!eligibleRejected.length) return;
+    const firstRejected = eligibleRejected[0];
     setSelectedRejectedId(firstRejected.id);
     setReplacementAmount(firstRejected.amount.toFixed(2));
     setNotice(null);
@@ -361,7 +438,7 @@ export default function ProcessedFilesPage() {
                           <button
                             type="button"
                             className="text-button history-detail-button"
-                            onClick={() => setSelectedId(file.id)}
+                            onClick={() => openFileDetail(file.id)}
                           >
                             Ver detalle
                           </button>
@@ -412,7 +489,7 @@ export default function ProcessedFilesPage() {
                     rechazadas
                   </span>
                 </div>
-                {selectedFile.rejectedTransactions.length > 0 ? (
+                {selectedFile.rejectedTransactions.some((transaction) => canReprocess(transaction.reason)) ? (
                   <button
                     type="button"
                     className="secondary-button history-reprocess-button"
@@ -421,6 +498,13 @@ export default function ProcessedFilesPage() {
                     Revisar y reprocesar rechazos
                   </button>
                 ) : null}
+                <button
+                  type="button"
+                  className="text-button history-open-detail-button"
+                  onClick={() => openFileDetail(selectedFile.id)}
+                >
+                  Ver detalle del archivo
+                </button>
               </div>
             ) : (
               <div className="selected-file-card__empty">
@@ -430,6 +514,202 @@ export default function ProcessedFilesPage() {
             )}
           </aside>
         </section>
+
+        {detailFile ? (
+          <section className="file-panel history-detail-panel" aria-label="Detalle del archivo">
+            <div className="panel-header history-detail-panel__header">
+              <div>
+                <p className="eyebrow">Detalle de archivo</p>
+                <h2>{detailFile.name}</h2>
+                <p>
+                  Resultado del lote procesado el {detailFile.batchDate} y sus transacciones asociadas.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => setDetailFileId(null)}
+              >
+                Cerrar detalle
+              </button>
+            </div>
+
+            <div className="detail-tabs" role="tablist" aria-label="Secciones del detalle">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={detailTab === "summary"}
+                className={detailTab === "summary" ? "is-active" : ""}
+                onClick={() => setDetailTab("summary")}
+              >
+                Resumen del archivo
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={detailTab === "transactions"}
+                className={detailTab === "transactions" ? "is-active" : ""}
+                onClick={() => setDetailTab("transactions")}
+              >
+                Transacciones ({numberFormat.format(detailFile.total)})
+              </button>
+            </div>
+
+            {detailTab === "summary" ? (
+              <div className="detail-summary-content">
+                <div className="detail-summary-grid">
+                  <div className="detail-summary-item">
+                    <span>Estado</span>
+                    <strong>{statusLabel(detailFile.status)}</strong>
+                  </div>
+                  <div className="detail-summary-item">
+                    <span>Total de registros</span>
+                    <strong>{numberFormat.format(detailFile.total)}</strong>
+                  </div>
+                  <div className="detail-summary-item">
+                    <span>Procesadas</span>
+                    <strong>{numberFormat.format(detailFile.processed)}</strong>
+                  </div>
+                  <div className="detail-summary-item">
+                    <span>Rechazadas</span>
+                    <strong>{numberFormat.format(detailFile.rejected)}</strong>
+                  </div>
+                  <div className="detail-summary-item">
+                    <span>Fecha de procesamiento</span>
+                    <strong>{detailFile.processedAt}</strong>
+                  </div>
+                </div>
+
+                <div className="detail-reasons">
+                  <p className="eyebrow">Motivos registrados</p>
+                  {detailReasonCounts.length > 0 ? (
+                    <div className="detail-reasons__list">
+                      {detailReasonCounts.map(([reason, count]) => (
+                        <div key={reason}>
+                          <span>{reason}</span>
+                          <strong>{count}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="detail-empty-note">No se registraron rechazos para este archivo.</p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="detail-transactions-content">
+                <div className="detail-transactions__heading">
+                  <p>Vista de transacciones del lote. Los rechazos elegibles pueden reprocesarse modificando únicamente el monto.</p>
+                  <span>{detailTransactions.length} registros de muestra</span>
+                </div>
+                <div className="detail-pagination" aria-label="Paginación de transacciones">
+                  <label className="detail-page-size">
+                    <span>Mostrar</span>
+                    <select
+                      value={transactionPageSize}
+                      onChange={(event) => {
+                        setTransactionPageSize(Number(event.target.value) as 25 | 50);
+                        setTransactionPage(1);
+                      }}
+                    >
+                      <option value="25">25</option>
+                      <option value="50">50</option>
+                    </select>
+                    <span>por página</span>
+                  </label>
+                  <span className="detail-pagination__range">
+                    Mostrando {detailTransactions.length === 0 ? 0 : (currentTransactionPage - 1) * transactionPageSize + 1}–{Math.min(currentTransactionPage * transactionPageSize, detailTransactions.length)} de {detailTransactions.length} registros de muestra
+                  </span>
+                  <div className="detail-pagination__controls">
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => setTransactionPage((page) => Math.max(1, page - 1))}
+                      disabled={currentTransactionPage === 1}
+                    >
+                      Anterior
+                    </button>
+                    <span>Página {currentTransactionPage} de {detailPageCount}</span>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => setTransactionPage((page) => Math.min(detailPageCount, page + 1))}
+                      disabled={currentTransactionPage === detailPageCount}
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                </div>
+                <div className="table-wrapper">
+                  <table className="transaction-detail-table">
+                    <thead>
+                      <tr>
+                        <th>Cuenta</th>
+                        <th className="number-column">Monto</th>
+                        <th>Fecha</th>
+                        <th>Estado</th>
+                        <th>Motivo de rechazo</th>
+                        <th>Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedDetailTransactions.map((transaction) => {
+                        const isRejected = transaction.status === "RECHAZADA";
+                        const isReprocessable = Boolean(
+                          transaction.rejectionReason && canReprocess(transaction.rejectionReason),
+                        );
+                        return (
+                          <tr key={transaction.id}>
+                            <td>
+                              <strong className="transaction-account">{transaction.account}</strong>
+                            </td>
+                            <td className="number-column">
+                              {transaction.amount.toFixed(2)}
+                            </td>
+                            <td>{transaction.date}</td>
+                            <td>
+                              <span className={`history-status history-status--${isRejected ? "error" : "procesado"}`}>
+                                <span aria-hidden="true" />
+                                {isRejected ? "Rechazada" : "Procesada"}
+                              </span>
+                            </td>
+                            <td>
+                              <span className="transaction-reason">
+                                {transaction.rejectionReason ?? "—"}
+                              </span>
+                            </td>
+                            <td>
+                              {isRejected && isReprocessable ? (
+                                <button
+                                  type="button"
+                                  className="text-button history-detail-button"
+                                  onClick={() => {
+                                    const rejected = detailFile.rejectedTransactions.find(
+                                      (item) => item.id === transaction.id,
+                                    );
+                                    if (!rejected) return;
+                                    setSelectedId(detailFile.id);
+                                    setSelectedRejectedId(rejected.id);
+                                    setReplacementAmount(rejected.amount.toFixed(2));
+                                    setIsReprocessOpen(true);
+                                  }}
+                                >
+                                  Reprocesar
+                                </button>
+                              ) : (
+                                <span className="transaction-action-note">Sin acción</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </section>
+        ) : null}
 
         {isReprocessOpen && selectedFile ? (
           <div
@@ -460,7 +740,9 @@ export default function ProcessedFilesPage() {
               </div>
 
               <div className="rejected-transaction-list" aria-label="Transacciones rechazadas">
-                {selectedFile.rejectedTransactions.map((transaction) => (
+                {selectedFile.rejectedTransactions
+                  .filter((transaction) => canReprocess(transaction.reason))
+                  .map((transaction) => (
                   <button
                     type="button"
                     key={transaction.id}
