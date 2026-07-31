@@ -166,7 +166,7 @@ export default function AvailableFilesPage() {
             <span>Patrón requerido</span>
             <strong className="metric__path">transactions_DDMMYYYY.csv</strong>
           </div>
-          <div className="metric metric--assurance">
+          <div className="metric">
             <span>Control de entrada</span>
             <strong>Validación activa</strong>
           </div>
@@ -269,51 +269,25 @@ export default function AvailableFilesPage() {
             </div>
           </div>
 
-          <aside className="control-panel" aria-label="Controles de seguridad">
-            <p className="eyebrow">Control operativo</p>
-            <h2>Procesamiento protegido desde el origen</h2>
-            <p>
-              iBatch verifica la identidad del archivo antes de iniciar la
-              lectura y mantiene trazabilidad durante todo el ciclo.
-            </p>
-
-            <ol className="assurance-list">
-              <li>
-                <span>01</span>
-                <div>
-                  <strong>Ruta controlada</strong>
-                  <p>
-                    El archivo debe permanecer dentro del directorio autorizado.
-                  </p>
-                </div>
-              </li>
-              <li>
-                <span>02</span>
-                <div>
-                  <strong>Estructura validada</strong>
-                  <p>
-                    Nombre, extensión y encabezado se revisan antes de leer
-                    filas.
-                  </p>
-                </div>
-              </li>
-              <li>
-                <span>03</span>
-                <div>
-                  <strong>Evidencia persistente</strong>
-                  <p>
-                    Resultados y rechazos quedan registrados para auditoría.
-                  </p>
-                </div>
-              </li>
-            </ol>
-
-            <div className="selected-summary">
-              <span>Selección actual</span>
-              <strong>
-                {selectedFile?.name ?? "Ningún archivo seleccionado"}
-              </strong>
-            </div>
+          <aside className="selected-file-card" aria-label="Archivo seleccionado">
+            <p className="eyebrow">Selección actual</p>
+            {selectedFile ? (
+              <div className="selected-file-card__content">
+                <span className="selection-state">
+                  <span aria-hidden="true" />
+                  Listo para procesar
+                </span>
+                <strong>{selectedFile.name}</strong>
+                <span className="selected-file-card__meta">
+                  {selectedFile.batchDate} · {selectedFile.size}
+                </span>
+              </div>
+            ) : (
+              <div className="selected-file-card__empty">
+                <strong>Ningún lote seleccionado</strong>
+                <span>Seleccione un archivo del listado.</span>
+              </div>
+            )}
           </aside>
         </section>
 
