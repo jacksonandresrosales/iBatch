@@ -106,7 +106,9 @@ export default function AvailableFilesPage() {
           <a className="nav-link nav-link--active" href="/files/available">
             Operaciones
           </a>
-          <span className="nav-link nav-link--disabled">Historial</span>
+          <a className="nav-link" href="/files">
+            Historial
+          </a>
           <span className="nav-link nav-link--disabled">Dashboard</span>
         </nav>
 
