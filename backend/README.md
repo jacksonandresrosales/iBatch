@@ -17,19 +17,20 @@ $env:DB_URL="jdbc:mysql://localhost:3306/ibatch?createDatabaseIfNotExist=true&us
 $env:DB_USERNAME="root"
 $env:DB_PASSWORD=""
 $env:CORS_ALLOWED_ORIGINS="http://localhost:3000"
+$env:APP_FILES_INPUT_DIR="C:\iroute\input"
 ```
 
 ## Directorio de archivos
 
-El backend lee los CSV desde el directorio configurado en `application.yml`:
+El backend lee los CSV desde `APP_FILES_INPUT_DIR`. Si no se define, usa `input` en `application.yml`:
 
 ```yaml
 app:
   files:
-    input-dir: input
+    input-dir: ${APP_FILES_INPUT_DIR:input}
 ```
 
-Cuando el backend se ejecuta desde la carpeta `backend`, esa ruta apunta a `backend/input`.
+Cuando el backend se ejecuta desde la carpeta `backend` y no se define la variable, esa ruta apunta a `backend/input`.
 La carpeta `backend/input` es local de pruebas y no se sube al repositorio.
 
 ## Base de datos

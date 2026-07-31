@@ -96,7 +96,14 @@ public class TransactionValidationRule {
         }
 
         try {
-            return new BigDecimal(rawAmount.trim()).setScale(2, RoundingMode.UNNECESSARY);
+            var amount = new BigDecimal(rawAmount.trim()).setScale(2, RoundingMode.UNNECESSARY);
+
+            if (amount.signum() <= 0) {
+                rejections.add(new TransactionRejection(MONTO_INVALIDO, "El monto debe ser mayor a cero"));
+                return null;
+            }
+
+            return amount;
         } catch (ArithmeticException | NumberFormatException exception) {
             rejections.add(new TransactionRejection(MONTO_INVALIDO, "El monto debe ser un valor monetario valido"));
             return null;

@@ -50,6 +50,25 @@ class TransactionValidationRuleTest {
     }
 
     @Test
+    void shouldRejectZeroAndNegativeAmounts() throws Exception {
+        var rule = new TransactionValidationRule(transactionRepository);
+
+        var zeroAmountResult = rule.validate(
+                parseRecord("cuenta,monto,fecha\n2000000000,0,31/07/2026"),
+                new HashSet<>());
+        var negativeAmountResult = rule.validate(
+                parseRecord("cuenta,monto,fecha\n2000000000,-12.50,31/07/2026"),
+                new HashSet<>());
+
+        assertThat(zeroAmountResult.rejections())
+                .extracting("rejectionReasonId")
+                .containsExactly(4);
+        assertThat(negativeAmountResult.rejections())
+                .extracting("rejectionReasonId")
+                .containsExactly(4);
+    }
+
+    @Test
     void shouldRejectDuplicateInsideSameFile() throws Exception {
         var record = parseRecord("cuenta,monto,fecha\n2000000000,3241.71,31/07/2026");
         var currentFileUniqueKeys = new HashSet<String>();
