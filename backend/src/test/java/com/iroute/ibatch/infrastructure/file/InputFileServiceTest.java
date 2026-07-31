@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -51,7 +52,8 @@ class InputFileServiceTest {
         var response = service.validateFileForProcessing("transactions_30072026.csv");
 
         assertThat(response.fileName()).isEqualTo("transactions_30072026.csv");
-        assertThat(response.status()).isEqualTo("VALIDATED");
+        assertThat(response.originalPath()).endsWith("transactions_30072026.csv");
+        assertThat(response.fileDate()).isEqualTo(LocalDate.parse("2026-07-30"));
     }
 
     @Test

@@ -17,11 +17,12 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.iroute.ibatch.application.usecase.AvailableFileService;
+import com.iroute.ibatch.application.usecase.FileProcessingService;
 import com.iroute.ibatch.application.usecase.ProcessedFileService;
 import com.iroute.ibatch.dto.response.AvailableFileResponse;
 import com.iroute.ibatch.dto.response.ProcessFileResponse;
 import com.iroute.ibatch.dto.response.ProcessedFileResponse;
-import com.iroute.ibatch.infrastructure.file.InputFileService;
 
 @WebMvcTest(FileController.class)
 class FileControllerTest {
@@ -30,7 +31,10 @@ class FileControllerTest {
     private MockMvc mockMvc;
 
     @MockBean
-    private InputFileService inputFileService;
+    private AvailableFileService availableFileService;
+
+    @MockBean
+    private FileProcessingService fileProcessingService;
 
     @MockBean
     private ProcessedFileService processedFileService;
@@ -68,7 +72,7 @@ class FileControllerTest {
                 OffsetDateTime.parse("2026-07-30T18:30:00-05:00"),
                 true);
 
-        when(inputFileService.findAvailableCsvFiles()).thenReturn(List.of(response));
+        when(availableFileService.findAvailableFiles()).thenReturn(List.of(response));
 
         mockMvc.perform(get("/files/available"))
                 .andExpect(status().isOk())
@@ -80,19 +84,21 @@ class FileControllerTest {
     @Test
     void shouldValidateFileForProcessing() throws Exception {
         var response = new ProcessFileResponse(
+                1L,
                 "transactions_30072026.csv",
-                "VALIDATED",
-                "Archivo validado para procesamiento");
+                "PROCESANDO",
+                "Archivo registrado para procesamiento");
 
-        when(inputFileService.validateFileForProcessing("transactions_30072026.csv")).thenReturn(response);
+        when(fileProcessingService.registerFileForProcessing("transactions_30072026.csv")).thenReturn(response);
 
         mockMvc.perform(post("/files/process")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"fileName\":\"transactions_30072026.csv\"}"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fileId").value(1))
                 .andExpect(jsonPath("$.fileName").value("transactions_30072026.csv"))
-                .andExpect(jsonPath("$.status").value("VALIDATED"))
-                .andExpect(jsonPath("$.message").value("Archivo validado para procesamiento"));
+                .andExpect(jsonPath("$.status").value("PROCESANDO"))
+                .andExpect(jsonPath("$.message").value("Archivo registrado para procesamiento"));
     }
 
     @Test
