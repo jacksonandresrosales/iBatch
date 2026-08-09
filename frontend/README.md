@@ -12,11 +12,25 @@ archivos CSV de transacciones financieras.
 
 ```bash
 npm install
+```
+
+Copie la configuración de ejemplo antes de iniciar el frontend:
+
+```powershell
+Copy-Item .env.example .env.local
+```
+
+En Linux o macOS use `cp .env.example .env.local`.
+
+```bash
 npm run dev
 ```
 
 La aplicación estará disponible en `http://localhost:3000` y redirigirá a la
 pantalla `/files/available`.
+
+El backend debe estar disponible en `http://localhost:8080` o en la URL definida
+en `NEXT_PUBLIC_API_BASE_URL`.
 
 ## Compilación
 
@@ -27,12 +41,3 @@ npm run start
 
 Maven no forma parte del frontend. Se utilizará exclusivamente para gestionar
 el backend Spring Boot.
-
-
-La aplicación consume el backend mediante `NEXT_PUBLIC_API_BASE_URL`.
-
-Crear un archivo `.env.local` si el backend no está en la dirección predeterminada:
-
-```env
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
-```
