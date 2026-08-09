@@ -1,112 +1,94 @@
 package com.iroute.ibatch.infrastructure.csv;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
-import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
 import org.springframework.stereotype.Service;
 
+import com.iroute.ibatch.application.usecase.FileProgressTracker;
+import com.iroute.ibatch.application.usecase.TransactionBatchWriter;
+import com.iroute.ibatch.config.ProcessingProperties;
 import com.iroute.ibatch.domain.model.CsvTransactionRow;
 import com.iroute.ibatch.domain.model.InputFileMetadata;
 import com.iroute.ibatch.domain.model.TransactionProcessingResult;
 import com.iroute.ibatch.domain.model.TransactionRejection;
+import com.iroute.ibatch.domain.model.ValidatedCsvTransaction;
 import com.iroute.ibatch.domain.rule.TransactionValidationRule;
-import com.iroute.ibatch.application.usecase.FileProgressTracker;
-import com.iroute.ibatch.infrastructure.persistence.repository.TransactionRepository;
 
 @Service
 public class CsvTransactionProcessor {
 
     private static final int STATUS_RECHAZADA = 2;
     private static final int FILA_CORRUPTA = 8;
-    private static final Set<String> REQUIRED_HEADERS = Set.of("cuenta", "monto", "fecha");
 
+    private final CsvReader csvReader;
     private final TransactionValidationRule transactionValidationRule;
-    private final TransactionRepository transactionRepository;
+    private final TransactionBatchWriter transactionBatchWriter;
+    private final ProcessingProperties processingProperties;
+    private final FileProgressTracker fileProgressTracker;
 
     public CsvTransactionProcessor(
+            CsvReader csvReader,
             TransactionValidationRule transactionValidationRule,
-            TransactionRepository transactionRepository) {
+            TransactionBatchWriter transactionBatchWriter,
+            ProcessingProperties processingProperties,
+            FileProgressTracker fileProgressTracker) {
+        this.csvReader = csvReader;
         this.transactionValidationRule = transactionValidationRule;
-        this.transactionRepository = transactionRepository;
+        this.transactionBatchWriter = transactionBatchWriter;
+        this.processingProperties = processingProperties;
+        this.fileProgressTracker = fileProgressTracker;
     }
 
     public TransactionProcessingResult process(Long fileId, InputFileMetadata inputFile) {
-        return process(fileId, inputFile, null);
-    }
-
-    public TransactionProcessingResult process(Long fileId, InputFileMetadata inputFile, FileProgressTracker progressTracker) {
-        try (BufferedReader reader = Files.newBufferedReader(Path.of(inputFile.originalPath()))) {
-            var csvFormat = CSVFormat.DEFAULT.builder()
-                    .setHeader()
-                    .setSkipHeaderRecord(true)
-                    .setTrim(true)
-                    .build();
-            var parser = csvFormat.parse(reader);
-
-            validateHeaders(parser.getHeaderMap().keySet());
-
+        int totalFileRecords = csvReader.countTotalRecords(inputFile);
+        try (CSVParser parser = csvReader.openParser(inputFile)) {
             var currentFileUniqueKeys = new HashSet<String>();
+            var batch = new ArrayList<ValidatedCsvTransaction>(processingProperties.batchSize());
+            var totalRecords = 0;
             var processedCount = 0;
             var rejectedCount = 0;
-            var totalRecords = countRecords(inputFile);
-            if (progressTracker != null) {
-                progressTracker.startProgress(fileId, inputFile.fileName(), totalRecords);
-            }
 
             for (var record : parser) {
-                if (!record.isConsistent()) {
-                    saveCorruptedRow(fileId, Math.toIntExact(record.getRecordNumber() + 1));
-                    rejectedCount++;
-                    updateProgress(progressTracker, fileId, inputFile.fileName(), processedCount, rejectedCount, totalRecords);
-                    continue;
+                totalRecords++;
+                if (totalRecords > processingProperties.maxRecords()) {
+                    throw new IllegalArgumentException("El archivo excede el numero maximo de registros permitido");
                 }
 
-                var validatedTransaction = transactionValidationRule.validate(record, currentFileUniqueKeys);
-                var transactionId = transactionRepository.save(fileId, validatedTransaction.row());
+                batch.add(record.isConsistent()
+                        ? transactionValidationRule.validate(record, currentFileUniqueKeys)
+                        : corruptedRow(Math.toIntExact(record.getRecordNumber() + 1)));
 
-                if (validatedTransaction.rejections().isEmpty()) {
-                    processedCount++;
-                } else {
-                    transactionRepository.saveRejections(transactionId, validatedTransaction.rejections());
-                    rejectedCount++;
+                if (batch.size() >= processingProperties.batchSize()) {
+                    var result = transactionBatchWriter.write(fileId, batch);
+                    processedCount += result.processedCount();
+                    rejectedCount += result.rejectedCount();
+                    batch.clear();
+
+                    fileProgressTracker.updateProgress(fileId, inputFile.fileName(), processedCount, rejectedCount, totalFileRecords > 0 ? totalFileRecords : totalRecords);
                 }
-                updateProgress(progressTracker, fileId, inputFile.fileName(), processedCount, rejectedCount, totalRecords);
             }
 
-            return new TransactionProcessingResult(processedCount + rejectedCount, processedCount, rejectedCount);
-        } catch (IOException exception) {
-            throw new IllegalStateException("No se pudo leer el archivo CSV", exception);
+            if (!batch.isEmpty()) {
+                var result = transactionBatchWriter.write(fileId, batch);
+                processedCount += result.processedCount();
+                rejectedCount += result.rejectedCount();
+
+                fileProgressTracker.updateProgress(fileId, inputFile.fileName(), processedCount, rejectedCount, totalFileRecords > 0 ? totalFileRecords : totalRecords);
+            }
+
+            return new TransactionProcessingResult(totalRecords, processedCount, rejectedCount);
+        } catch (Exception exception) {
+            if (exception instanceof IllegalArgumentException) {
+                throw (IllegalArgumentException) exception;
+            }
+            throw new IllegalStateException("Ocurrio un error al procesar el archivo CSV", exception);
         }
     }
 
-    private int countRecords(InputFileMetadata inputFile) {
-        try (var lines = Files.lines(Path.of(inputFile.originalPath()))) {
-            return (int) Math.max(0, lines.count() - 1);
-        } catch (IOException exception) {
-            return 0;
-        }
-    }
-
-    private void updateProgress(FileProgressTracker tracker, Long fileId, String fileName,
-            int processedCount, int rejectedCount, int totalRecords) {
-        if (tracker != null) {
-            tracker.updateProgress(fileId, fileName, processedCount, rejectedCount, totalRecords);
-        }
-    }
-
-    private void validateHeaders(Set<String> headers) {
-        if (!headers.containsAll(REQUIRED_HEADERS)) {
-            throw new IllegalArgumentException("La estructura del archivo no es valida");
-        }
-    }
-
-    private void saveCorruptedRow(Long fileId, int lineNumber) {
+    private ValidatedCsvTransaction corruptedRow(int lineNumber) {
         var row = new CsvTransactionRow(
                 lineNumber,
                 null,
@@ -117,9 +99,9 @@ public class CsvTransactionProcessor {
                 null,
                 STATUS_RECHAZADA,
                 null);
-        var transactionId = transactionRepository.save(fileId, row);
-        var rejection = new TransactionRejection(FILA_CORRUPTA, "La fila no contiene la estructura esperada");
 
-        transactionRepository.saveRejections(transactionId, List.of(rejection));
+        return new ValidatedCsvTransaction(
+                row,
+                List.of(new TransactionRejection(FILA_CORRUPTA, "La fila no contiene la estructura esperada")));
     }
 }

@@ -74,6 +74,14 @@ public class InputFileService {
             throw new IllegalArgumentException("El archivo no existe en el directorio configurado");
         }
 
+        try {
+            if (Files.size(filePath) > fileStorageProperties.maxSizeBytes()) {
+                throw new IllegalArgumentException("El archivo excede el tamano maximo permitido");
+            }
+        } catch (IOException exception) {
+            throw new IllegalStateException("No se pudo validar el tamano del archivo", exception);
+        }
+
         return new InputFileMetadata(
                 fileName,
                 filePath.toString(),

@@ -9,9 +9,18 @@ spring:
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
+      connection-timeout: ${DB_CONNECTION_TIMEOUT_MS:10000}
+      validation-timeout: 5000
 
 app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
   files:
     input-dir: ${APP_FILES_INPUT_DIR:input}
+    max-size-bytes: ${MAX_FILE_SIZE_BYTES:52428800}
+  processing:
+    batch-size: ${PROCESSING_BATCH_SIZE:500}
+    max-records: ${MAX_FILE_RECORDS:1000000}

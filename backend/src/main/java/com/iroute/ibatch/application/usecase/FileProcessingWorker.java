@@ -46,7 +46,7 @@ public class FileProcessingWorker {
             processingLogRepository.save(fileId, null, LOG_INFO, EVENT_FILE_PROCESS_STARTED,
                     "Procesamiento de archivo iniciado");
 
-            var result = csvTransactionProcessor.process(fileId, inputFile, fileProgressTracker);
+            var result = csvTransactionProcessor.process(fileId, inputFile);
             var finalStatusId = result.rejectedCount() > 0
                     ? FILE_STATUS_PROCESADO_CON_RECHAZOS
                     : FILE_STATUS_PROCESADO;

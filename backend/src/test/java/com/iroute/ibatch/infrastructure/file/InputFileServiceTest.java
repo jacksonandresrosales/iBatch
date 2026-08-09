@@ -18,26 +18,25 @@ class InputFileServiceTest {
     private Path inputDir;
 
     @Test
-    void shouldListOnlyCsvFilesAndDetectExpectedFormat() throws Exception {
+    void shouldListOnlyFilesWithExpectedFormat() throws Exception {
         Files.writeString(inputDir.resolve("transactions_30072026.csv"), "cuenta,monto,fecha");
         Files.writeString(inputDir.resolve("transactions_wrong.csv"), "cuenta,monto,fecha");
         Files.writeString(inputDir.resolve("notes.txt"), "ignore");
 
-        var service = new InputFileService(new FileStorageProperties(inputDir));
+        var service = new InputFileService(new FileStorageProperties(inputDir, 52_428_800L));
 
         var files = service.findAvailableCsvFiles();
 
-        assertThat(files).hasSize(2);
+        assertThat(files).hasSize(1);
         assertThat(files)
                 .extracting("fileName")
-                .containsExactly("transactions_30072026.csv", "transactions_wrong.csv");
+                .containsExactly("transactions_30072026.csv");
         assertThat(files.get(0).expectedFormat()).isTrue();
-        assertThat(files.get(1).expectedFormat()).isFalse();
     }
 
     @Test
     void shouldReturnEmptyListWhenInputDirectoryDoesNotExist() {
-        var service = new InputFileService(new FileStorageProperties(inputDir.resolve("missing")));
+        var service = new InputFileService(new FileStorageProperties(inputDir.resolve("missing"), 52_428_800L));
 
         var files = service.findAvailableCsvFiles();
 
@@ -47,7 +46,7 @@ class InputFileServiceTest {
     @Test
     void shouldValidateExistingFileForProcessing() throws Exception {
         Files.writeString(inputDir.resolve("transactions_30072026.csv"), "cuenta,monto,fecha");
-        var service = new InputFileService(new FileStorageProperties(inputDir));
+        var service = new InputFileService(new FileStorageProperties(inputDir, 52_428_800L));
 
         var response = service.validateFileForProcessing("transactions_30072026.csv");
 
@@ -58,7 +57,7 @@ class InputFileServiceTest {
 
     @Test
     void shouldRejectFileWithUnexpectedFormat() {
-        var service = new InputFileService(new FileStorageProperties(inputDir));
+        var service = new InputFileService(new FileStorageProperties(inputDir, 52_428_800L));
 
         assertThatThrownBy(() -> service.validateFileForProcessing("transactions 30072026.csv"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -67,7 +66,7 @@ class InputFileServiceTest {
 
     @Test
     void shouldRejectMissingFile() {
-        var service = new InputFileService(new FileStorageProperties(inputDir));
+        var service = new InputFileService(new FileStorageProperties(inputDir, 52_428_800L));
 
         assertThatThrownBy(() -> service.validateFileForProcessing("transactions_30072026.csv"))
                 .isInstanceOf(IllegalArgumentException.class)

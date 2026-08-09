@@ -5,21 +5,26 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Repository;
 
 import com.iroute.ibatch.domain.model.CsvTransactionRow;
 import com.iroute.ibatch.domain.model.FileTransactionCounters;
+import com.iroute.ibatch.domain.model.PersistedTransactionRejection;
 import com.iroute.ibatch.domain.model.ProcessedTransaction;
+import com.iroute.ibatch.domain.model.RejectionReasonSummary;
 import com.iroute.ibatch.domain.model.TransactionRejection;
 import com.iroute.ibatch.domain.model.TransactionRejectionDetail;
-import com.iroute.ibatch.domain.model.RejectionReasonSummary;
 
 @Repository
 public class TransactionRepository {
@@ -103,6 +108,93 @@ public class TransactionRepository {
         return getGeneratedId(keyHolder);
     }
 
+    public void saveBatch(Long fileId, List<CsvTransactionRow> rows, boolean ignoreDuplicates) {
+        if (rows.isEmpty()) {
+            return;
+        }
+
+        var sql = """
+                INSERT %s INTO transactions (
+                    file_id,
+                    line_number,
+                    raw_account,
+                    raw_amount,
+                    raw_date,
+                    account,
+                    amount,
+                    transaction_date,
+                    transaction_status_id,
+                    processed_unique_key,
+                    record_status_id
+                ) VALUES (
+                    :fileId,
+                    :lineNumber,
+                    :rawAccount,
+                    :rawAmount,
+                    :rawDate,
+                    :account,
+                    :amount,
+                    :transactionDate,
+                    :transactionStatusId,
+                    :processedUniqueKey,
+                    1
+                )
+                """.formatted(ignoreDuplicates ? "IGNORE" : "");
+        SqlParameterSource[] parameters = rows.stream()
+                .map(row -> new MapSqlParameterSource()
+                        .addValue("fileId", fileId)
+                        .addValue("lineNumber", row.lineNumber())
+                        .addValue("rawAccount", row.rawAccount())
+                        .addValue("rawAmount", row.rawAmount())
+                        .addValue("rawDate", row.rawDate())
+                        .addValue("account", row.account())
+                        .addValue("amount", row.amount())
+                        .addValue("transactionDate", row.transactionDate())
+                        .addValue("transactionStatusId", row.transactionStatusId())
+                        .addValue("processedUniqueKey", row.processedUniqueKey()))
+                .toArray(SqlParameterSource[]::new);
+
+        namedParameterJdbcTemplate.batchUpdate(sql, parameters);
+    }
+
+    public Set<String> findExistingProcessedUniqueKeys(Set<String> uniqueKeys) {
+        if (uniqueKeys.isEmpty()) {
+            return Set.of();
+        }
+
+        var sql = """
+                SELECT processed_unique_key
+                FROM transactions
+                WHERE processed_unique_key IN (:uniqueKeys)
+                """;
+        var parameters = new MapSqlParameterSource("uniqueKeys", uniqueKeys);
+
+        return Set.copyOf(namedParameterJdbcTemplate.queryForList(sql, parameters, String.class));
+    }
+
+    public Map<Integer, Long> findIdsByFileAndLineNumbers(Long fileId, List<Integer> lineNumbers) {
+        if (lineNumbers.isEmpty()) {
+            return Map.of();
+        }
+
+        var sql = """
+                SELECT transaction_id, line_number
+                FROM transactions
+                WHERE file_id = :fileId
+                  AND line_number IN (:lineNumbers)
+                """;
+        var parameters = new MapSqlParameterSource()
+                .addValue("fileId", fileId)
+                .addValue("lineNumbers", lineNumbers);
+        var result = new HashMap<Integer, Long>();
+
+        namedParameterJdbcTemplate.query(sql, parameters, resultSet -> {
+            result.put(resultSet.getInt("line_number"), resultSet.getLong("transaction_id"));
+        });
+
+        return result;
+    }
+
     public List<ProcessedTransaction> findByFileId(Long fileId) {
         var sql = """
                 SELECT t.transaction_id,
@@ -127,13 +219,28 @@ public class TransactionRepository {
         return jdbcTemplate.query(sql, this::mapTransactionRow, fileId);
     }
 
-    public List<ProcessedTransaction> findByFileId(Long fileId, int page, int size, String status, String account) {
+    public List<ProcessedTransaction> findByFileId(
+            Long fileId,
+            int page,
+            int size,
+            String status,
+            String account) {
         var sql = """
-                SELECT t.transaction_id, t.file_id, t.line_number, t.raw_account, t.raw_amount,
-                       t.raw_date, t.account, t.amount, t.transaction_date, ts.code AS status,
-                       t.created_at, t.updated_at
+                SELECT t.transaction_id,
+                       t.file_id,
+                       t.line_number,
+                       t.raw_account,
+                       t.raw_amount,
+                       t.raw_date,
+                       t.account,
+                       t.amount,
+                       t.transaction_date,
+                       ts.code AS status,
+                       t.created_at,
+                       t.updated_at
                 FROM transactions t
-                INNER JOIN transaction_status ts ON ts.transaction_status_id = t.transaction_status_id
+                INNER JOIN transaction_status ts
+                        ON ts.transaction_status_id = t.transaction_status_id
                 WHERE t.file_id = :fileId
                   AND (:status IS NULL OR ts.code = :status)
                   AND (:account IS NULL OR LOCATE(:account, COALESCE(t.account, t.raw_account, '')) > 0)
@@ -146,6 +253,7 @@ public class TransactionRepository {
                 .addValue("account", account)
                 .addValue("size", size)
                 .addValue("offset", page * size);
+
         return namedParameterJdbcTemplate.query(sql, parameters, this::mapTransactionRow);
     }
 
@@ -153,7 +261,8 @@ public class TransactionRepository {
         var sql = """
                 SELECT COUNT(*)
                 FROM transactions t
-                INNER JOIN transaction_status ts ON ts.transaction_status_id = t.transaction_status_id
+                INNER JOIN transaction_status ts
+                        ON ts.transaction_status_id = t.transaction_status_id
                 WHERE t.file_id = :fileId
                   AND (:status IS NULL OR ts.code = :status)
                   AND (:account IS NULL OR LOCATE(:account, COALESCE(t.account, t.raw_account, '')) > 0)
@@ -163,6 +272,7 @@ public class TransactionRepository {
                 .addValue("status", status)
                 .addValue("account", account);
         var count = namedParameterJdbcTemplate.queryForObject(sql, parameters, Long.class);
+
         return count == null ? 0 : count;
     }
 
@@ -232,17 +342,23 @@ public class TransactionRepository {
         if (transactionIds.isEmpty()) {
             return List.of();
         }
+
         var sql = """
-                SELECT tr.transaction_rejection_id, tr.transaction_id,
-                       rr.code AS reason_code, rr.name AS reason_name,
-                       tr.message, tr.created_at
+                SELECT tr.transaction_rejection_id,
+                       tr.transaction_id,
+                       rr.code AS reason_code,
+                       rr.name AS reason_name,
+                       tr.message,
+                       tr.created_at
                 FROM transaction_rejections tr
-                INNER JOIN rejection_reason rr ON rr.rejection_reason_id = tr.rejection_reason_id
+                INNER JOIN rejection_reason rr
+                        ON rr.rejection_reason_id = tr.rejection_reason_id
                 WHERE tr.transaction_id IN (:transactionIds)
                 ORDER BY tr.transaction_rejection_id ASC
                 """;
-        return namedParameterJdbcTemplate.query(sql,
-                new MapSqlParameterSource("transactionIds", transactionIds), this::mapRejectionRow);
+        var parameters = new MapSqlParameterSource("transactionIds", transactionIds);
+
+        return namedParameterJdbcTemplate.query(sql, parameters, this::mapRejectionRow);
     }
 
     public void updateReprocessedAmount(
@@ -300,6 +416,32 @@ public class TransactionRepository {
         }
     }
 
+    public void saveRejectionsBatch(List<PersistedTransactionRejection> rejections) {
+        if (rejections.isEmpty()) {
+            return;
+        }
+
+        var sql = """
+                INSERT INTO transaction_rejections (
+                    transaction_id,
+                    rejection_reason_id,
+                    message
+                ) VALUES (
+                    :transactionId,
+                    :rejectionReasonId,
+                    :message
+                )
+                """;
+        SqlParameterSource[] parameters = rejections.stream()
+                .map(item -> new MapSqlParameterSource()
+                        .addValue("transactionId", item.transactionId())
+                        .addValue("rejectionReasonId", item.rejection().rejectionReasonId())
+                        .addValue("message", item.rejection().message()))
+                .toArray(SqlParameterSource[]::new);
+
+        namedParameterJdbcTemplate.batchUpdate(sql, parameters);
+    }
+
     public void saveReprocessHistory(
             ProcessedTransaction transaction,
             BigDecimal newAmount,
@@ -354,14 +496,20 @@ public class TransactionRepository {
 
     public List<RejectionReasonSummary> findRejectionReasonSummary() {
         var sql = """
-                SELECT rr.code, rr.name, COUNT(*) AS rejection_count
+                SELECT rr.code,
+                       rr.name,
+                       COUNT(*) AS rejection_count
                 FROM transaction_rejections tr
-                INNER JOIN rejection_reason rr ON rr.rejection_reason_id = tr.rejection_reason_id
+                INNER JOIN rejection_reason rr
+                        ON rr.rejection_reason_id = tr.rejection_reason_id
                 GROUP BY rr.code, rr.name
                 ORDER BY rejection_count DESC, rr.code ASC
                 """;
+
         return jdbcTemplate.query(sql, (resultSet, rowNumber) -> new RejectionReasonSummary(
-                resultSet.getString("code"), resultSet.getString("name"), resultSet.getInt("rejection_count")));
+                resultSet.getString("code"),
+                resultSet.getString("name"),
+                resultSet.getInt("rejection_count")));
     }
 
     private int toStatusId(String status) {
