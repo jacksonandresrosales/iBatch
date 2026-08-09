@@ -126,6 +126,45 @@ public class TransactionRepository {
         return jdbcTemplate.query(sql, this::mapTransactionRow, fileId);
     }
 
+    public List<ProcessedTransaction> findByFileId(Long fileId, int page, int size, String status, String account) {
+        var sql = """
+                SELECT t.transaction_id, t.file_id, t.line_number, t.raw_account, t.raw_amount,
+                       t.raw_date, t.account, t.amount, t.transaction_date, ts.code AS status,
+                       t.created_at, t.updated_at
+                FROM transactions t
+                INNER JOIN transaction_status ts ON ts.transaction_status_id = t.transaction_status_id
+                WHERE t.file_id = :fileId
+                  AND (:status IS NULL OR ts.code = :status)
+                  AND (:account IS NULL OR LOCATE(:account, COALESCE(t.account, t.raw_account, '')) > 0)
+                ORDER BY t.line_number ASC, t.transaction_id ASC
+                LIMIT :size OFFSET :offset
+                """;
+        var parameters = new MapSqlParameterSource()
+                .addValue("fileId", fileId)
+                .addValue("status", status)
+                .addValue("account", account)
+                .addValue("size", size)
+                .addValue("offset", page * size);
+        return namedParameterJdbcTemplate.query(sql, parameters, this::mapTransactionRow);
+    }
+
+    public long countByFileId(Long fileId, String status, String account) {
+        var sql = """
+                SELECT COUNT(*)
+                FROM transactions t
+                INNER JOIN transaction_status ts ON ts.transaction_status_id = t.transaction_status_id
+                WHERE t.file_id = :fileId
+                  AND (:status IS NULL OR ts.code = :status)
+                  AND (:account IS NULL OR LOCATE(:account, COALESCE(t.account, t.raw_account, '')) > 0)
+                """;
+        var parameters = new MapSqlParameterSource()
+                .addValue("fileId", fileId)
+                .addValue("status", status)
+                .addValue("account", account);
+        var count = namedParameterJdbcTemplate.queryForObject(sql, parameters, Long.class);
+        return count == null ? 0 : count;
+    }
+
     public Optional<ProcessedTransaction> findById(Long transactionId) {
         var sql = """
                 SELECT t.transaction_id,
@@ -186,6 +225,23 @@ public class TransactionRepository {
                 """;
 
         return jdbcTemplate.query(sql, this::mapRejectionRow, transactionId);
+    }
+
+    public List<TransactionRejectionDetail> findRejectionsByTransactionIds(List<Long> transactionIds) {
+        if (transactionIds.isEmpty()) {
+            return List.of();
+        }
+        var sql = """
+                SELECT tr.transaction_rejection_id, tr.transaction_id,
+                       rr.code AS reason_code, rr.name AS reason_name,
+                       tr.message, tr.created_at
+                FROM transaction_rejections tr
+                INNER JOIN rejection_reason rr ON rr.rejection_reason_id = tr.rejection_reason_id
+                WHERE tr.transaction_id IN (:transactionIds)
+                ORDER BY tr.transaction_rejection_id ASC
+                """;
+        return namedParameterJdbcTemplate.query(sql,
+                new MapSqlParameterSource("transactionIds", transactionIds), this::mapRejectionRow);
     }
 
     public void updateReprocessedAmount(

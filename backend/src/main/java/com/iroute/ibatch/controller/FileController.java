@@ -4,13 +4,18 @@ import java.util.List;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.iroute.ibatch.application.usecase.AvailableFileService;
@@ -26,6 +31,7 @@ import com.iroute.ibatch.application.usecase.ProcessedFileService;
 
 @RestController
 @RequestMapping("/files")
+@Validated
 public class FileController {
 
     private final AvailableFileService availableFileService;
@@ -50,8 +56,14 @@ public class FileController {
     }
 
     @GetMapping("/{id}")
-    public FileDetailResponse getProcessedFileDetail(@PathVariable Long id) {
-        return processedFileService.findDetailById(id);
+    public FileDetailResponse getProcessedFileDetail(
+            @PathVariable @Positive(message = "El id debe ser mayor a cero") Long id,
+            @RequestParam(defaultValue = "0") @Min(value = 0, message = "La pagina no es valida") int page,
+            @RequestParam(defaultValue = "50") @Min(value = 1, message = "El tamano de pagina no es valido")
+            @Max(value = 100, message = "El tamano maximo de pagina es 100") int size,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) @Size(max = 100, message = "La cuenta no puede exceder 100 caracteres") String account) {
+        return processedFileService.findDetailById(id, page, size, status, account);
     }
 
     @GetMapping("/{id}/progress")

@@ -36,15 +36,27 @@ public class ProcessedFileService {
     }
 
     public FileDetailResponse findDetailById(Long fileId) {
+        return findDetailById(fileId, 0, 50, null, null);
+    }
+
+    public FileDetailResponse findDetailById(Long fileId, int page, int size, String status, String account) {
         var file = processedFileRepository.findById(fileId)
                 .orElseThrow(() -> new IllegalArgumentException("El archivo no existe"));
-        var rejectionsByTransactionId = transactionRepository.findRejectionsByFileId(fileId).stream()
+        if (status != null && !List.of("PROCESADO", "RECHAZADA").contains(status)) {
+            throw new IllegalArgumentException("El estado de transaccion no es valido");
+        }
+        var accountSearch = account == null || account.isBlank() ? null : account.trim();
+        var pageTransactions = transactionRepository.findByFileId(fileId, page, size, status, accountSearch);
+        var transactionIds = pageTransactions.stream().map(ProcessedTransaction::transactionId).toList();
+        var rejectionsByTransactionId = transactionRepository.findRejectionsByTransactionIds(transactionIds).stream()
                 .collect(Collectors.groupingBy(TransactionRejectionDetail::transactionId));
-        var transactions = transactionRepository.findByFileId(fileId).stream()
+        var transactions = pageTransactions.stream()
                 .map(transaction -> toTransactionResponse(transaction, rejectionsByTransactionId))
                 .toList();
+        var totalElements = transactionRepository.countByFileId(fileId, status, accountSearch);
+        var totalPages = size == 0 ? 1 : (int) Math.ceil((double) totalElements / size);
 
-        return new FileDetailResponse(toResponse(file), transactions);
+        return new FileDetailResponse(toResponse(file), transactions, page, size, totalElements, totalPages);
     }
 
     private ProcessedFileResponse toResponse(ProcessedFile processedFile) {
