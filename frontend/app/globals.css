@@ -1006,7 +1006,154 @@ h1 {
 
 .health-bar span {
   display: block;
-  height: 100%…683 tokens truncated…r
+  height: 100%;
+  background: var(--teal-600);
+}
+
+.health-bar__legend {
+  padding-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  color: var(--ink-500);
+  font-size: 11px;
+}
+
+.health-bar__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.legend-dot {
+  width: 7px;
+  height: 7px;
+  display: inline-block;
+  border-radius: 50%;
+}
+
+.legend-dot--teal {
+  background: var(--teal-600);
+}
+
+.legend-dot--copper {
+  background: var(--copper-600);
+}
+
+.health-callout {
+  margin-top: 24px;
+  padding: 13px 15px;
+  display: grid;
+  gap: 5px;
+  border-left: 3px solid var(--copper-600);
+  background: var(--ink-050);
+}
+
+.health-callout strong {
+  color: var(--ink-900);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.health-callout span {
+  color: var(--ink-500);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.alert-count {
+  min-width: 29px;
+  height: 29px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--copper-600);
+  color: var(--copper-600);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.alert-list {
+  display: grid;
+}
+
+.alert-item {
+  min-height: 77px;
+  padding: 15px 0;
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 11px;
+  border-bottom: 1px solid var(--ink-100);
+}
+
+.alert-item:last-child {
+  border-bottom: 0;
+}
+
+.alert-item__marker {
+  width: 7px;
+  height: 7px;
+  margin-top: 5px;
+  border-radius: 50%;
+}
+
+.alert-item--error .alert-item__marker {
+  background: #a64646;
+}
+
+.alert-item--warning .alert-item__marker {
+  background: var(--copper-600);
+}
+
+.alert-item div {
+  display: grid;
+  gap: 4px;
+}
+
+.alert-item strong {
+  color: var(--ink-900);
+  font-size: 12px;
+}
+
+.alert-item div span,
+.alert-item time {
+  color: var(--ink-500);
+  font-size: 11px;
+}
+
+.alert-item time {
+  padding-top: 2px;
+  white-space: nowrap;
+}
+
+.reason-list {
+  padding-top: 15px;
+}
+
+.reason-row {
+  min-height: 62px;
+  display: grid;
+  grid-template-columns: minmax(150px, 0.8fr) minmax(120px, 1fr) 42px;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid var(--ink-100);
+}
+
+.reason-row:last-child {
+  border-bottom: 0;
+}
+
+.reason-row__label {
+  display: grid;
+  gap: 4px;
+}
+
+.reason-row__label strong {
+  color: var(--ink-900);
+  font-size: 12px;
+}
+
 .reason-row__label span {
   color: var(--ink-500);
   font-family: Consolas, "SFMono-Regular", monospace;
