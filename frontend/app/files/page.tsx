@@ -1,9 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import AppHeader from "../components/AppHeader";
+import {
+  getFileDetail,
+  getProcessedFiles,
+  reprocessTransaction as reprocessTransactionRequest,
+  type FileDetailResponse,
+  type ProcessedFileResponse,
+} from "../../lib/api";
 
-type HistoryStatus = "PROCESADO" | "PROCESADO_CON_RECHAZOS" | "ERROR";
+type HistoryStatus = "PROCESANDO" | "PROCESADO" | "PROCESADO_CON_RECHAZOS" | "ERROR";
 
 type RejectedTransaction = {
   id: string;
@@ -32,134 +39,90 @@ type ProcessedFile = {
   rejected: number;
   status: HistoryStatus;
   rejectedTransactions: RejectedTransaction[];
+  transactions: FileTransaction[];
+  detailTotalElements: number;
+  detailTotalPages: number;
   errorDetail?: string;
 };
 
-function createRejectedTransactions(fileId: string, count: number) {
-  const reasons = [
-    "Transacción duplicada",
-    "Cuenta inválida",
-    "Monto inválido",
-    "Fecha inválida",
-  ];
+function formatFileDate(fileName: string) {
+  const datePart = fileName.match(/transactions_(\d{2})(\d{2})(\d{4})\.csv/i);
+  if (!datePart) return "Fecha no disponible";
 
-  return Array.from({ length: count }, (_, index) => ({
-    id: `${fileId}-rejected-${index + 1}`,
-    account: `2200${String(4812 + index).padStart(6, "0")}`,
-    date: `30/07/2026`,
-    amount: Number((185.4 + index * 42.75).toFixed(2)),
-    reason: reasons[index % reasons.length],
-  }));
+  return new Intl.DateTimeFormat("es-EC", { day: "2-digit", month: "short", year: "numeric" })
+    .format(new Date(Number(datePart[3]), Number(datePart[2]) - 1, Number(datePart[1])));
 }
 
-const initialHistory: ProcessedFile[] = [
-  {
-    id: "batch-30072026",
-    name: "transactions_30072026.csv",
-    batchDate: "30 jul 2026",
-    processedAt: "30 jul 2026 · 09:14",
-    total: 9960,
-    processed: 9950,
-    rejected: 10,
-    status: "PROCESADO_CON_RECHAZOS",
-    rejectedTransactions: createRejectedTransactions("batch-30072026", 10),
-  },
-  {
-    id: "batch-29072026",
-    name: "transactions_29072026.csv",
-    batchDate: "29 jul 2026",
-    processedAt: "29 jul 2026 · 09:02",
-    total: 12430,
-    processed: 12430,
-    rejected: 0,
-    status: "PROCESADO",
+function formatTimestamp(timestamp: string) {
+  return new Intl.DateTimeFormat("es-EC", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    hour12: false,
+  }).format(new Date(timestamp));
+}
+
+function mapProcessedFile(file: ProcessedFileResponse): ProcessedFile {
+  return {
+    id: String(file.id),
+    name: file.fileName,
+    batchDate: formatFileDate(file.fileName),
+    processedAt: formatTimestamp(file.updatedAt),
+    total: file.totalTransactions,
+    processed: file.processedTransactions,
+    rejected: file.rejectedTransactions,
+    status: file.status,
     rejectedTransactions: [],
-  },
-  {
-    id: "batch-28072026",
-    name: "transactions_28072026.csv",
-    batchDate: "28 jul 2026",
-    processedAt: "28 jul 2026 · 08:27",
-    total: 0,
-    processed: 0,
-    rejected: 0,
-    status: "ERROR",
-    rejectedTransactions: [],
-    errorDetail: "Encabezado inválido",
-  },
-  {
-    id: "batch-27072026",
-    name: "transactions_27072026.csv",
-    batchDate: "27 jul 2026",
-    processedAt: "27 jul 2026 · 09:41",
-    total: 8200,
-    processed: 8184,
-    rejected: 16,
-    status: "PROCESADO_CON_RECHAZOS",
-    rejectedTransactions: createRejectedTransactions("batch-27072026", 16),
-  },
-  {
-    id: "batch-26072026",
-    name: "transactions_26072026.csv",
-    batchDate: "26 jul 2026",
-    processedAt: "26 jul 2026 · 08:56",
-    total: 7650,
-    processed: 7650,
-    rejected: 0,
-    status: "PROCESADO",
-    rejectedTransactions: [],
-  },
-];
+    transactions: [],
+    detailTotalElements: 0,
+    detailTotalPages: 0,
+    errorDetail: file.errorMessage ?? undefined,
+  };
+}
+
+function mapFileDetail(detail: FileDetailResponse): ProcessedFile {
+  const file = mapProcessedFile(detail.file);
+  const transactions = detail.transactions.map((transaction) => ({
+    id: String(transaction.transactionId),
+    account: transaction.account ?? transaction.rawAccount ?? "No disponible",
+    date: transaction.transactionDate ?? transaction.rawDate ?? "No disponible",
+    amount: transaction.amount ?? 0,
+    status: transaction.status,
+    rejectionReason: transaction.rejections[0]?.reasonName ?? transaction.rejections[0]?.reasonCode,
+  }));
+
+  return {
+    ...file,
+    transactions,
+    detailTotalElements: detail.totalElements,
+    detailTotalPages: detail.totalPages,
+    rejectedTransactions: transactions
+      .filter((transaction) => transaction.status === "RECHAZADA")
+      .map((transaction) => ({
+        id: transaction.id,
+        account: transaction.account,
+        date: transaction.date,
+        amount: transaction.amount,
+        reason: transaction.rejectionReason ?? "Rechazada",
+      })),
+  };
+}
 
 const numberFormat = new Intl.NumberFormat("es-EC");
 
 function statusLabel(status: HistoryStatus) {
+  if (status === "PROCESANDO") return "Procesando";
   if (status === "PROCESADO_CON_RECHAZOS") return "Con rechazos";
   if (status === "ERROR") return "Error";
   return "Procesado";
 }
 
 function canReprocess(reason: string) {
-  return reason === "Monto inválido";
-}
-
-function transactionSample(file: ProcessedFile): FileTransaction[] {
-  const acceptedTransactions: FileTransaction[] = Array.from(
-    { length: Math.min(64, file.processed) },
-    (_, index) => ({
-      id: `${file.id}-processed-${index + 1}`,
-      account: `2200${String(1200 + index).padStart(6, "0")}`,
-      date: file.batchDate.replace(" jul 2026", "/07/2026"),
-      amount: Number((420.5 + index * 85.25).toFixed(2)),
-      status: "PROCESADO",
-    }),
-  );
-
-  const rejectedTransactions: FileTransaction[] = file.rejectedTransactions
-    .slice(0, 6)
-    .map((transaction) => ({
-      id: transaction.id,
-      account: transaction.account,
-      date: transaction.date,
-      amount: transaction.amount,
-      status: "RECHAZADA",
-      rejectionReason: transaction.reason,
-    }));
-
-  return [...acceptedTransactions, ...rejectedTransactions];
+  return Boolean(reason);
 }
 
 export default function ProcessedFilesPage() {
-  const [files, setFiles] = useState(initialHistory);
-  const [selectedId, setSelectedId] = useState(() => {
-    if (typeof window !== "undefined") {
-      const requestedId = new URLSearchParams(window.location.search).get("selected");
-      if (requestedId && initialHistory.some((file) => file.id === requestedId)) {
-        return requestedId;
-      }
-    }
-    return initialHistory[0]?.id ?? "";
-  });
+  const [files, setFiles] = useState<ProcessedFile[]>([]);
+  const [selectedId, setSelectedId] = useState("");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"TODOS" | HistoryStatus>(
     "TODOS",
@@ -175,6 +138,9 @@ export default function ProcessedFilesPage() {
   );
   const [transactionPage, setTransactionPage] = useState(1);
   const [transactionPageSize, setTransactionPageSize] = useState<25 | 50>(25);
+  const [transactionStatusFilter, setTransactionStatusFilter] = useState<"TODOS" | "PROCESADO" | "RECHAZADA">("TODOS");
+  const [transactionAccountQuery, setTransactionAccountQuery] = useState("");
+  const [appliedTransactionAccountQuery, setAppliedTransactionAccountQuery] = useState("");
 
   const selectedFile = files.find((file) => file.id === selectedId) ?? null;
   const detailFile = files.find((file) => file.id === detailFileId) ?? null;
@@ -203,16 +169,9 @@ export default function ProcessedFilesPage() {
   const rejectionRate = totalTransactions
     ? ((rejectedTransactions / totalTransactions) * 100).toFixed(2)
     : "0.00";
-  const detailTransactions = detailFile ? transactionSample(detailFile) : [];
-  const detailPageCount = Math.max(
-    1,
-    Math.ceil(detailTransactions.length / transactionPageSize),
-  );
+  const detailTransactions = detailFile?.transactions ?? [];
+  const detailPageCount = Math.max(1, detailFile?.detailTotalPages ?? 1);
   const currentTransactionPage = Math.min(transactionPage, detailPageCount);
-  const paginatedDetailTransactions = detailTransactions.slice(
-    (currentTransactionPage - 1) * transactionPageSize,
-    currentTransactionPage * transactionPageSize,
-  );
   const detailReasonCounts = detailFile
     ? Object.entries(
         detailFile.rejectedTransactions.reduce<Record<string, number>>(
@@ -225,16 +184,102 @@ export default function ProcessedFilesPage() {
       )
     : [];
 
-  const refreshHistory = () => {
-    setFiles([...initialHistory]);
-    setNotice("Historial actualizado. Se muestran los últimos registros.");
+  const refreshHistory = async (showNotice = true) => {
+    try {
+      const processedFiles = (await getProcessedFiles()).map(mapProcessedFile);
+      setFiles(processedFiles);
+      setSelectedId((currentId) =>
+        processedFiles.some((file) => file.id === currentId)
+          ? currentId
+          : (processedFiles[0]?.id ?? ""),
+      );
+      if (showNotice) {
+        setNotice("Historial actualizado.");
+      }
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No se pudo consultar el historial.");
+    }
   };
 
-  const openFileDetail = (fileId: string) => {
-    setSelectedId(fileId);
-    setDetailFileId(fileId);
-    setDetailTab("transactions");
-    setTransactionPage(1);
+  useEffect(() => {
+    void refreshHistory(false);
+
+    const interval = setInterval(() => {
+      void getProcessedFiles().then(data => {
+        setFiles(currentFiles => {
+          const newFiles = data.map(mapProcessedFile);
+          return newFiles.map(newFile => {
+            const existing = currentFiles.find(f => f.id === newFile.id);
+            if (existing) {
+              return {
+                ...newFile,
+                transactions: existing.transactions,
+                detailTotalElements: existing.detailTotalElements,
+                detailTotalPages: existing.detailTotalPages,
+                rejectedTransactions: existing.rejectedTransactions,
+              };
+            }
+            return newFile;
+          });
+        });
+      }).catch(console.error);
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (detailFileId) {
+      setTimeout(() => {
+        document.getElementById("file-detail-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+    }
+  }, [detailFileId]);
+
+  const loadDetailPage = async (
+    fileId: string,
+    page: number,
+    size: 25 | 50,
+    statusFilter: "TODOS" | "PROCESADO" | "RECHAZADA" = transactionStatusFilter,
+    accountQuery = appliedTransactionAccountQuery,
+  ) => {
+    try {
+      const apiStatus = statusFilter === "TODOS" ? undefined : statusFilter;
+      const detail = mapFileDetail(
+        await getFileDetail(Number(fileId), page - 1, size, apiStatus, accountQuery || undefined),
+      );
+      setFiles((currentFiles) =>
+        currentFiles.map((file) => (file.id === fileId ? detail : file)),
+      );
+      setSelectedId(fileId);
+      setDetailFileId(fileId);
+      setDetailTab("transactions");
+      setTransactionPage(page);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No se pudo cargar el detalle del archivo.");
+    }
+  };
+
+  const openFileDetail = async (fileId: string) => {
+    setTransactionStatusFilter("TODOS");
+    setTransactionAccountQuery("");
+    setAppliedTransactionAccountQuery("");
+    await loadDetailPage(fileId, 1, transactionPageSize, "TODOS", "");
+  };
+
+  const searchTransactionsByAccount = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!detailFile) return;
+
+    const accountQuery = transactionAccountQuery.trim();
+    setAppliedTransactionAccountQuery(accountQuery);
+    await loadDetailPage(
+      detailFile.id,
+      1,
+      transactionPageSize,
+      transactionStatusFilter,
+      accountQuery,
+    );
   };
 
   const openReprocessModal = () => {
@@ -254,38 +299,34 @@ export default function ProcessedFilesPage() {
     setReplacementAmount(transaction.amount.toFixed(2));
   };
 
-  const reprocessTransaction = () => {
+  const reprocessTransaction = async () => {
     if (!selectedFile || !selectedRejectedTransaction) return;
 
     const normalizedAmount = Number(replacementAmount.replace(",", "."));
     if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
-      setNotice("Ingrese un monto válido mayor que cero para reprocesar.");
+      setNotice("Ingrese un monto vÃ¡lido mayor que cero para reprocesar.");
       return;
     }
 
     setIsReprocessing(true);
-    window.setTimeout(() => {
-      setFiles((currentFiles) =>
-        currentFiles.map((file) => {
-          if (file.id !== selectedFile.id) return file;
-          const nextRejected = file.rejected - 1;
-          return {
-            ...file,
-            processed: file.processed + 1,
-            rejected: nextRejected,
-            status: nextRejected > 0 ? "PROCESADO_CON_RECHAZOS" : "PROCESADO",
-            rejectedTransactions: file.rejectedTransactions.filter(
-              (transaction) => transaction.id !== selectedRejectedTransaction.id,
-            ),
-          };
-        }),
+    try {
+      const result = await reprocessTransactionRequest(
+        Number(selectedRejectedTransaction.id),
+        normalizedAmount,
       );
-      setIsReprocessing(false);
+      await refreshHistory(false);
+      await loadDetailPage(selectedFile.id, transactionPage, transactionPageSize);
       setIsReprocessOpen(false);
       setNotice(
-        `Reproceso registrado para ${selectedFile.name}. El nuevo monto es ${normalizedAmount.toFixed(2)}.`,
+        result.status === "PROCESADO"
+          ? `TransacciÃ³n reprocesada correctamente en ${selectedFile.name}.`
+          : "La transacciÃ³n fue reprocesada, pero continÃºa rechazada.",
       );
-    }, 450);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No se pudo reprocesar la transacciÃ³n.");
+    } finally {
+      setIsReprocessing(false);
+    }
   };
 
   return (
@@ -295,18 +336,18 @@ export default function ProcessedFilesPage() {
       <main>
         <section className="page-intro">
           <div>
-            <p className="eyebrow">Operaciones / Control histórico</p>
+            <p className="eyebrow">Operaciones / Control histÃ³rico</p>
             <h1>Historial de archivos</h1>
             <p className="page-description">
-              Consulte el resultado de cada lote procesado y ubique rápidamente
-              los archivos que requieren revisión.
+              Consulte el resultado de cada lote procesado y ubique rÃ¡pidamente
+              los archivos que requieren revisiÃ³n.
             </p>
           </div>
 
           <div className="sync-summary">
-            <span className="sync-summary__label">Última actualización</span>
-            <strong>Hoy, 09:18</strong>
-            <button type="button" className="text-button" onClick={refreshHistory}>
+            <span className="sync-summary__label">Ãšltima actualizaciÃ³n</span>
+            <strong>{selectedFile?.processedAt ?? "Sin registros"}</strong>
+            <button type="button" className="text-button" onClick={() => void refreshHistory()}>
               Actualizar historial
             </button>
           </div>
@@ -322,7 +363,7 @@ export default function ProcessedFilesPage() {
           </div>
         ) : null}
 
-        <section className="operational-overview history-metrics" aria-label="Resumen histórico">
+        <section className="operational-overview history-metrics" aria-label="Resumen histÃ³rico">
           <div className="metric">
             <span>Archivos procesados</span>
             <strong>{files.length.toString().padStart(2, "0")}</strong>
@@ -390,7 +431,7 @@ export default function ProcessedFilesPage() {
                     <th className="number-column">Procesadas</th>
                     <th className="number-column">Rechazadas</th>
                     <th>Procesado</th>
-                    <th>Acción</th>
+                    <th>AcciÃ³n</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -425,13 +466,13 @@ export default function ProcessedFilesPage() {
                           ) : null}
                         </td>
                         <td className="number-column">
-                          {file.total ? numberFormat.format(file.total) : "—"}
+                          {file.total ? numberFormat.format(file.total) : "â€”"}
                         </td>
                         <td className="number-column">
-                          {file.processed ? numberFormat.format(file.processed) : "—"}
+                          {file.processed ? numberFormat.format(file.processed) : "â€”"}
                         </td>
                         <td className="number-column">
-                          {file.rejected ? numberFormat.format(file.rejected) : "—"}
+                          {file.rejected ? numberFormat.format(file.rejected) : "â€”"}
                         </td>
                         <td>{file.processedAt}</td>
                         <td>
@@ -452,7 +493,7 @@ export default function ProcessedFilesPage() {
               {visibleFiles.length === 0 ? (
                 <div className="empty-state">
                   <strong>No se encontraron registros</strong>
-                  <span>Ajuste la búsqueda o el filtro de estado.</span>
+                  <span>Ajuste la bÃºsqueda o el filtro de estado.</span>
                 </div>
               ) : null}
             </div>
@@ -508,7 +549,7 @@ export default function ProcessedFilesPage() {
               </div>
             ) : (
               <div className="selected-file-card__empty">
-                <strong>Ningún registro seleccionado</strong>
+                <strong>NingÃºn registro seleccionado</strong>
                 <span>Seleccione un archivo del historial.</span>
               </div>
             )}
@@ -516,7 +557,7 @@ export default function ProcessedFilesPage() {
         </section>
 
         {detailFile ? (
-          <section className="file-panel history-detail-panel" aria-label="Detalle del archivo">
+          <section id="file-detail-panel" className="file-panel history-detail-panel" aria-label="Detalle del archivo">
             <div className="panel-header history-detail-panel__header">
               <div>
                 <p className="eyebrow">Detalle de archivo</p>
@@ -599,41 +640,76 @@ export default function ProcessedFilesPage() {
             ) : (
               <div className="detail-transactions-content">
                 <div className="detail-transactions__heading">
-                  <p>Vista de transacciones del lote. Los rechazos elegibles pueden reprocesarse modificando únicamente el monto.</p>
-                  <span>{detailTransactions.length} registros de muestra</span>
+                  <p>Vista de transacciones del lote. Los rechazos elegibles pueden reprocesarse modificando Ãºnicamente el monto.</p>
+                  <div className="detail-transaction-filters">
+                    <form className="detail-account-search" onSubmit={searchTransactionsByAccount}>
+                      <label className="search-field">
+                        <span>Buscar por cuenta</span>
+                        <input
+                          type="search"
+                          inputMode="numeric"
+                          value={transactionAccountQuery}
+                          onChange={(event) => setTransactionAccountQuery(event.target.value)}
+                          placeholder="NÃºmero de cuenta"
+                        />
+                      </label>
+                      <button type="submit" className="secondary-button">
+                        Buscar
+                      </button>
+                    </form>
+                    <label className="filter-field">
+                      <span>Estado</span>
+                      <select
+                        value={transactionStatusFilter}
+                        onChange={(event) => {
+                          const nextStatus = event.target.value as "TODOS" | "PROCESADO" | "RECHAZADA";
+                          setTransactionStatusFilter(nextStatus);
+                          void loadDetailPage(detailFile.id, 1, transactionPageSize, nextStatus);
+                        }}
+                      >
+                        <option value="TODOS">Todos</option>
+                        <option value="PROCESADO">Procesados</option>
+                        <option value="RECHAZADA">Rechazados</option>
+                      </select>
+                    </label>
+                    <span className="detail-transaction-count">
+                      {numberFormat.format(detailFile.detailTotalElements)} registros
+                    </span>
+                  </div>
                 </div>
-                <div className="detail-pagination" aria-label="Paginación de transacciones">
+                <div className="detail-pagination" aria-label="PaginaciÃ³n de transacciones">
                   <label className="detail-page-size">
                     <span>Mostrar</span>
                     <select
                       value={transactionPageSize}
                       onChange={(event) => {
-                        setTransactionPageSize(Number(event.target.value) as 25 | 50);
-                        setTransactionPage(1);
+                        const nextSize = Number(event.target.value) as 25 | 50;
+                        setTransactionPageSize(nextSize);
+                        void loadDetailPage(detailFile.id, 1, nextSize);
                       }}
                     >
                       <option value="25">25</option>
                       <option value="50">50</option>
                     </select>
-                    <span>por página</span>
+                    <span>por pÃ¡gina</span>
                   </label>
                   <span className="detail-pagination__range">
-                    Mostrando {detailTransactions.length === 0 ? 0 : (currentTransactionPage - 1) * transactionPageSize + 1}–{Math.min(currentTransactionPage * transactionPageSize, detailTransactions.length)} de {detailTransactions.length} registros de muestra
+                    Mostrando {detailFile.detailTotalElements === 0 ? 0 : (currentTransactionPage - 1) * transactionPageSize + 1}â€“{Math.min(currentTransactionPage * transactionPageSize, detailFile.detailTotalElements)} de {detailFile.detailTotalElements} registros
                   </span>
                   <div className="detail-pagination__controls">
                     <button
                       type="button"
                       className="secondary-button"
-                      onClick={() => setTransactionPage((page) => Math.max(1, page - 1))}
+                      onClick={() => void loadDetailPage(detailFile.id, Math.max(1, currentTransactionPage - 1), transactionPageSize)}
                       disabled={currentTransactionPage === 1}
                     >
                       Anterior
                     </button>
-                    <span>Página {currentTransactionPage} de {detailPageCount}</span>
+                    <span>PÃ¡gina {currentTransactionPage} de {detailPageCount}</span>
                     <button
                       type="button"
                       className="secondary-button"
-                      onClick={() => setTransactionPage((page) => Math.min(detailPageCount, page + 1))}
+                      onClick={() => void loadDetailPage(detailFile.id, Math.min(detailPageCount, currentTransactionPage + 1), transactionPageSize)}
                       disabled={currentTransactionPage === detailPageCount}
                     >
                       Siguiente
@@ -649,11 +725,11 @@ export default function ProcessedFilesPage() {
                         <th>Fecha</th>
                         <th>Estado</th>
                         <th>Motivo de rechazo</th>
-                        <th>Acción</th>
+                        <th>AcciÃ³n</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {paginatedDetailTransactions.map((transaction) => {
+                      {detailTransactions.map((transaction) => {
                         const isRejected = transaction.status === "RECHAZADA";
                         const isReprocessable = Boolean(
                           transaction.rejectionReason && canReprocess(transaction.rejectionReason),
@@ -675,7 +751,7 @@ export default function ProcessedFilesPage() {
                             </td>
                             <td>
                               <span className="transaction-reason">
-                                {transaction.rejectionReason ?? "—"}
+                                {transaction.rejectionReason ?? "â€”"}
                               </span>
                             </td>
                             <td>
@@ -697,7 +773,7 @@ export default function ProcessedFilesPage() {
                                   Reprocesar
                                 </button>
                               ) : (
-                                <span className="transaction-action-note">Sin acción</span>
+                                <span className="transaction-action-note">Sin acciÃ³n</span>
                               )}
                             </td>
                           </tr>
@@ -705,6 +781,12 @@ export default function ProcessedFilesPage() {
                       })}
                     </tbody>
                   </table>
+                  {detailTransactions.length === 0 ? (
+                    <div className="empty-state">
+                      <strong>No se encontraron transacciones</strong>
+                      <span>Revise el nÃºmero de cuenta o el filtro de estado.</span>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             )}
@@ -731,7 +813,7 @@ export default function ProcessedFilesPage() {
               <p className="eyebrow">Reproceso controlado</p>
               <h2 id="reprocess-title">Editar monto rechazado</h2>
               <p>
-                Corrija únicamente el monto de la transacción seleccionada y envíela nuevamente a validación.
+                Corrija Ãºnicamente el monto de la transacciÃ³n seleccionada y envÃ­ela nuevamente a validaciÃ³n.
               </p>
 
               <div className="reprocess-context">
@@ -752,7 +834,7 @@ export default function ProcessedFilesPage() {
                   >
                     <span>
                       <strong>{transaction.account}</strong>
-                      <small>{transaction.date} · {transaction.reason}</small>
+                      <small>{transaction.date} Â· {transaction.reason}</small>
                     </span>
                     <strong>{transaction.amount.toFixed(2)}</strong>
                   </button>
