@@ -86,11 +86,13 @@ class ProcessedFileServiceTest {
                 LocalDateTime.parse("2026-07-30T18:52:00"));
 
         when(processedFileRepository.findById(1L)).thenReturn(Optional.of(processedFile));
-        when(transactionRepository.findByFileId(1L)).thenReturn(List.of(transaction));
-        when(transactionRepository.findRejectionsByFileId(1L)).thenReturn(List.of(rejection));
+        when(transactionRepository.findByFileId(1L, 0, 50, null, "2000000000"))
+                .thenReturn(List.of(transaction));
+        when(transactionRepository.findRejectionsByTransactionIds(List.of(10L))).thenReturn(List.of(rejection));
+        when(transactionRepository.countByFileId(1L, null, "2000000000")).thenReturn(1L);
 
         var service = new ProcessedFileService(processedFileRepository, transactionRepository);
-        var response = service.findDetailById(1L);
+        var response = service.findDetailById(1L, 0, 50, null, " 2000000000 ");
 
         assertThat(response.file().id()).isEqualTo(1L);
         assertThat(response.transactions()).hasSize(1);

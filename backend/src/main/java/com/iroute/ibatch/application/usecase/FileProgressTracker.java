@@ -42,4 +42,8 @@ public class FileProgressTracker {
     public Optional<FileProgress> getProgress(Long fileId) {
         return Optional.ofNullable(progressByFile.get(fileId));
     }
+
+    public void removeProgress(Long fileId) {
+        progressByFile.remove(fileId);
+    }
 }

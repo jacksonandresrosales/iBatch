@@ -2,6 +2,7 @@ package com.iroute.ibatch.application.usecase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DuplicateKeyException;
 
 import com.iroute.ibatch.domain.model.FileTransactionCounters;
 import com.iroute.ibatch.domain.model.ProcessedTransaction;
@@ -83,6 +85,30 @@ class TransactionReprocessServiceTest {
         assertThatThrownBy(() -> service.reprocessAmount(10L, new BigDecimal("125.50")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("La transaccion no existe");
+    }
+
+    @Test
+    void shouldRejectTransactionWhenUniqueKeyCollidesDuringReprocess() {
+        var transaction = rejectedTransaction("RECHAZADA");
+
+        when(transactionRepository.findById(10L)).thenReturn(Optional.of(transaction));
+        when(transactionRepository.findRejectionsByTransactionId(10L)).thenReturn(List.of());
+        when(transactionRepository.existsProcessedUniqueKeyExcludingTransaction("2000000000|2026-07-31|125.50", 10L))
+                .thenReturn(false);
+        doThrow(new DuplicateKeyException("duplicado"))
+                .doNothing()
+                .when(transactionRepository)
+                .updateReprocessedAmount(10L, new BigDecimal("125.50"), 1, "2000000000|2026-07-31|125.50");
+        when(transactionRepository.countByFileId(1L)).thenReturn(new FileTransactionCounters(3, 2, 1));
+
+        var service = new TransactionReprocessService(
+                transactionRepository,
+                processedFileRepository,
+                processingLogRepository);
+        var response = service.reprocessAmount(10L, new BigDecimal("125.50"));
+
+        assertThat(response.status()).isEqualTo("RECHAZADA");
+        verify(transactionRepository).updateReprocessedAmount(10L, new BigDecimal("125.50"), 2, null);
     }
 
     private ProcessedTransaction rejectedTransaction(String status) {

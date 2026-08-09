@@ -40,10 +40,10 @@ public class DashboardService {
     }
 
     public PageResponse<ProcessingLogResponse> findRecentLogs(int page, int size) {
+        var totalElements = processingLogRepository.countAllLogs();
         var content = processingLogRepository.findRecentPaginated(size, page * size).stream()
                 .map(this::toResponse).toList();
-        return new PageResponse<>(content, page, size, processingLogRepository.countAllLogs(),
-                size == 0 ? 1 : (int) Math.ceil((double) processingLogRepository.countAllLogs() / size));
+        return PageResponse.of(content, page, size, totalElements);
     }
 
     private ProcessingLogResponse toResponse(ProcessingLogEntry log) {

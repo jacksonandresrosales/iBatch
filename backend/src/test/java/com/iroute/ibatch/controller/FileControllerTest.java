@@ -12,6 +12,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
@@ -19,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.iroute.ibatch.application.usecase.AvailableFileService;
 import com.iroute.ibatch.application.usecase.FileProcessingService;
+import com.iroute.ibatch.application.usecase.FileProgressTracker;
 import com.iroute.ibatch.application.usecase.ProcessedFileService;
 import com.iroute.ibatch.dto.response.AvailableFileResponse;
 import com.iroute.ibatch.dto.response.FileDetailResponse;
@@ -28,6 +30,7 @@ import com.iroute.ibatch.dto.response.TransactionDetailResponse;
 import com.iroute.ibatch.dto.response.TransactionRejectionResponse;
 
 @WebMvcTest(FileController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class FileControllerTest {
 
     @Autowired
@@ -41,6 +44,9 @@ class FileControllerTest {
 
     @MockBean
     private ProcessedFileService processedFileService;
+
+    @MockBean
+    private FileProgressTracker fileProgressTracker;
 
     @Test
     void shouldReturnProcessedFiles() throws Exception {
@@ -116,9 +122,10 @@ class FileControllerTest {
                 LocalDateTime.parse("2026-07-30T18:51:00"),
                 LocalDateTime.parse("2026-07-30T18:52:00"));
 
-        when(processedFileService.findDetailById(1L)).thenReturn(new FileDetailResponse(file, List.of(transaction)));
+        when(processedFileService.findDetailById(1L, 0, 50, null, "2000000000"))
+                .thenReturn(new FileDetailResponse(file, List.of(transaction), 0, 50, 1, 1));
 
-        mockMvc.perform(get("/files/1"))
+        mockMvc.perform(get("/files/1").param("account", "2000000000"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.file.id").value(1))
                 .andExpect(jsonPath("$.file.status").value("PROCESADO_CON_RECHAZOS"))
@@ -143,7 +150,7 @@ class FileControllerTest {
         mockMvc.perform(post("/files/process")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"fileName\":\"transactions_30072026.csv\"}"))
-                .andExpect(status().isOk())
+                .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.fileId").value(1))
                 .andExpect(jsonPath("$.fileName").value("transactions_30072026.csv"))
                 .andExpect(jsonPath("$.status").value("PROCESADO"))
@@ -160,5 +167,12 @@ class FileControllerTest {
                         .content("{\"fileName\":\"\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("El nombre del archivo es obligatorio"));
+    }
+
+    @Test
+    void shouldRejectNonPositiveFileId() throws Exception {
+        mockMvc.perform(get("/files/0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("La solicitud no es valida"));
     }
 }

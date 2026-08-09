@@ -5,9 +5,13 @@ import java.time.OffsetDateTime;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.dao.DataAccessException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
+import jakarta.validation.ConstraintViolationException;
 
 import com.iroute.ibatch.dto.response.ErrorResponse;
 
@@ -27,6 +31,12 @@ public class GlobalExceptionHandler {
                 .orElse("La solicitud no es valida");
 
         return buildBadRequest(message);
+    }
+
+    @ExceptionHandler({ConstraintViolationException.class, MethodArgumentTypeMismatchException.class,
+            HttpMessageNotReadableException.class})
+    public ResponseEntity<ErrorResponse> handleInvalidRequest() {
+        return buildBadRequest("La solicitud no es valida");
     }
 
     @ExceptionHandler(DataAccessException.class)

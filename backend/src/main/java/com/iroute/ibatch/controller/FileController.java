@@ -80,7 +80,8 @@ public class FileController {
     }
 
     @PostMapping("/process")
-    public ProcessFileResponse processFile(@Valid @RequestBody ProcessFileRequest request) {
-        return fileProcessingService.registerFileForProcessing(request.fileName());
+    public ResponseEntity<ProcessFileResponse> processFile(@Valid @RequestBody ProcessFileRequest request) {
+        return ResponseEntity.accepted()
+                .body(fileProcessingService.registerFileForProcessing(request.fileName()));
     }
 }

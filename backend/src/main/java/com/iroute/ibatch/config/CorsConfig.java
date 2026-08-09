@@ -25,12 +25,17 @@ public class CorsConfig implements WebMvcConfigurer {
         addFrontendCors(registry, "/files");
         addFrontendCors(registry, "/files/**");
         addFrontendCors(registry, "/transactions/**");
+        addFrontendCors(registry, "/dashboard/**");
+        addFrontendCors(registry, "/dashboard");
+        addFrontendCors(registry, "/logs/**");
+        addFrontendCors(registry, "/logs");
     }
 
     private void addFrontendCors(CorsRegistry registry, String pathPattern) {
         registry.addMapping(pathPattern)
                 .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-                .allowedHeaders("*");
+                .allowedHeaders("Content-Type", "Accept")
+                .maxAge(3600);
     }
 }

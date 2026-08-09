@@ -49,6 +49,7 @@ public class InputFileService {
             return files
                     .filter(Files::isRegularFile)
                     .filter(this::isCsvFile)
+                    .filter(file -> TRANSACTIONS_FILE_PATTERN.matcher(file.getFileName().toString()).matches())
                     .filter(file -> !excludedFileNames.contains(file.getFileName().toString()))
                     .map(this::toResponse)
                     .sorted(Comparator.comparing(AvailableFileResponse::fileName))

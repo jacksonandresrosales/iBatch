@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +31,7 @@ public class TransactionReprocessService {
     private static final int LOG_SUCCESS = 2;
     private static final int EVENT_REPROCESS_STARTED = 7;
     private static final int EVENT_REPROCESS_FINISHED = 8;
+    private static final BigDecimal MAX_AMOUNT = new BigDecimal("9999999999999999.99");
 
     private final TransactionRepository transactionRepository;
     private final ProcessedFileRepository processedFileRepository;
@@ -71,7 +73,17 @@ public class TransactionReprocessService {
                 LOG_INFO,
                 EVENT_REPROCESS_STARTED,
                 "Reproceso de transaccion iniciado");
-        transactionRepository.updateReprocessedAmount(transactionId, normalizedAmount, newStatusId, newUniqueKey);
+        try {
+            transactionRepository.updateReprocessedAmount(transactionId, normalizedAmount, newStatusId, newUniqueKey);
+        } catch (DuplicateKeyException exception) {
+            rejections = List.of(new TransactionRejection(
+                    DUPLICADO,
+                    "Ya existe una transaccion con la misma cuenta, fecha y monto"));
+            newStatusId = STATUS_RECHAZADA;
+            newStatus = "RECHAZADA";
+            newUniqueKey = null;
+            transactionRepository.updateReprocessedAmount(transactionId, normalizedAmount, newStatusId, newUniqueKey);
+        }
         transactionRepository.deleteRejections(transactionId);
         transactionRepository.saveRejections(transactionId, rejections);
         transactionRepository.saveReprocessHistory(
@@ -101,7 +113,11 @@ public class TransactionReprocessService {
         }
 
         try {
-            return amount.setScale(2, RoundingMode.UNNECESSARY);
+            var normalizedAmount = amount.setScale(2, RoundingMode.UNNECESSARY);
+            if (normalizedAmount.compareTo(MAX_AMOUNT) > 0) {
+                throw new IllegalArgumentException("El monto excede el limite permitido");
+            }
+            return normalizedAmount;
         } catch (ArithmeticException exception) {
             throw new IllegalArgumentException("El monto debe tener maximo dos decimales");
         }
