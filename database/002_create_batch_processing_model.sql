@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS files (
   UNIQUE KEY uk_files_file_name (file_name),
   KEY idx_files_file_status_id (file_status_id),
   KEY idx_files_record_status_id (record_status_id),
+  KEY idx_files_created (created_at, file_id),
   CONSTRAINT fk_files_file_status
     FOREIGN KEY (file_status_id) REFERENCES file_status (file_status_id),
   CONSTRAINT fk_files_record_status
@@ -91,6 +92,8 @@ CREATE TABLE IF NOT EXISTS transactions (
   PRIMARY KEY (transaction_id),
   UNIQUE KEY uk_transactions_processed_unique_key (processed_unique_key),
   KEY idx_transactions_file_id (file_id),
+  KEY idx_transactions_file_line (file_id, line_number),
+  KEY idx_transactions_file_status (file_id, transaction_status_id),
   KEY idx_transactions_transaction_status_id (transaction_status_id),
   KEY idx_transactions_record_status_id (record_status_id),
   CONSTRAINT fk_transactions_file
@@ -149,6 +152,7 @@ CREATE TABLE IF NOT EXISTS processing_logs (
   KEY idx_processing_logs_transaction_id (transaction_id),
   KEY idx_processing_logs_log_level_id (log_level_id),
   KEY idx_processing_logs_log_event_type_id (log_event_type_id),
+  KEY idx_processing_logs_created (created_at, log_id),
   CONSTRAINT fk_processing_logs_file
     FOREIGN KEY (file_id) REFERENCES files (file_id),
   CONSTRAINT fk_processing_logs_transaction
