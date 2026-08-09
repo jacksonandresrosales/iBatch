@@ -16,6 +16,7 @@ import com.iroute.ibatch.domain.model.InputFileMetadata;
 import com.iroute.ibatch.domain.model.TransactionProcessingResult;
 import com.iroute.ibatch.domain.model.TransactionRejection;
 import com.iroute.ibatch.domain.rule.TransactionValidationRule;
+import com.iroute.ibatch.application.usecase.FileProgressTracker;
 import com.iroute.ibatch.infrastructure.persistence.repository.TransactionRepository;
 
 @Service
@@ -36,6 +37,10 @@ public class CsvTransactionProcessor {
     }
 
     public TransactionProcessingResult process(Long fileId, InputFileMetadata inputFile) {
+        return process(fileId, inputFile, null);
+    }
+
+    public TransactionProcessingResult process(Long fileId, InputFileMetadata inputFile, FileProgressTracker progressTracker) {
         try (BufferedReader reader = Files.newBufferedReader(Path.of(inputFile.originalPath()))) {
             var csvFormat = CSVFormat.DEFAULT.builder()
                     .setHeader()
@@ -47,16 +52,18 @@ public class CsvTransactionProcessor {
             validateHeaders(parser.getHeaderMap().keySet());
 
             var currentFileUniqueKeys = new HashSet<String>();
-            var totalRecords = 0;
             var processedCount = 0;
             var rejectedCount = 0;
+            var totalRecords = countRecords(inputFile);
+            if (progressTracker != null) {
+                progressTracker.startProgress(fileId, inputFile.fileName(), totalRecords);
+            }
 
             for (var record : parser) {
-                totalRecords++;
-
                 if (!record.isConsistent()) {
                     saveCorruptedRow(fileId, Math.toIntExact(record.getRecordNumber() + 1));
                     rejectedCount++;
+                    updateProgress(progressTracker, fileId, inputFile.fileName(), processedCount, rejectedCount, totalRecords);
                     continue;
                 }
 
@@ -69,11 +76,27 @@ public class CsvTransactionProcessor {
                     transactionRepository.saveRejections(transactionId, validatedTransaction.rejections());
                     rejectedCount++;
                 }
+                updateProgress(progressTracker, fileId, inputFile.fileName(), processedCount, rejectedCount, totalRecords);
             }
 
-            return new TransactionProcessingResult(totalRecords, processedCount, rejectedCount);
+            return new TransactionProcessingResult(processedCount + rejectedCount, processedCount, rejectedCount);
         } catch (IOException exception) {
             throw new IllegalStateException("No se pudo leer el archivo CSV", exception);
+        }
+    }
+
+    private int countRecords(InputFileMetadata inputFile) {
+        try (var lines = Files.lines(Path.of(inputFile.originalPath()))) {
+            return (int) Math.max(0, lines.count() - 1);
+        } catch (IOException exception) {
+            return 0;
+        }
+    }
+
+    private void updateProgress(FileProgressTracker tracker, Long fileId, String fileName,
+            int processedCount, int rejectedCount, int totalRecords) {
+        if (tracker != null) {
+            tracker.updateProgress(fileId, fileName, processedCount, rejectedCount, totalRecords);
         }
     }
 

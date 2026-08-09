@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getAvailableFiles, processFile } from "../../../lib/api";
+import {
+  getAvailableFiles,
+  getFileProgress,
+  processFile,
+  type FileProgressResponse,
+} from "../../../lib/api";
 
 type AvailableFile = {
   id: string;
@@ -47,6 +52,7 @@ export default function AvailableFilesPage() {
   const [isConfirming, setIsConfirming] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [progress, setProgress] = useState<FileProgressResponse | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [lastSync, setLastSync] = useState("Hoy, 08:45");
 
@@ -82,6 +88,29 @@ export default function AvailableFilesPage() {
   }, []);
 
   useEffect(() => {
+    if (!progress || progress.completed) return;
+
+    const pollProgress = async () => {
+      try {
+        const currentProgress = await getFileProgress(progress.fileId);
+        setProgress(currentProgress);
+        if (currentProgress.completed) {
+          setNotice(currentProgress.error
+            ? "El procesamiento terminó con error."
+            : `El archivo ${currentProgress.fileName} terminó de procesarse.`);
+          await loadFiles();
+        }
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : "No se pudo consultar el progreso.");
+      }
+    };
+
+    const intervalId = window.setInterval(() => void pollProgress(), 3000);
+    void pollProgress();
+    return () => window.clearInterval(intervalId);
+  }, [progress]);
+
+  useEffect(() => {
     if (!isConfirming) return;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !isProcessing) setIsConfirming(false);
@@ -107,8 +136,18 @@ export default function AvailableFilesPage() {
       const response = await processFile(selectedFile.name);
       setIsConfirming(false);
       setSelectedId("");
+      setProgress({
+        fileId: response.fileId,
+        fileName: response.fileName,
+        processedCount: 0,
+        rejectedCount: 0,
+        totalRecords: 0,
+        percentage: 0,
+        status: "PROCESANDO",
+        completed: false,
+        error: false,
+      });
       setNotice(response.message || `${selectedFile.name} fue enviado al procesamiento.`);
-      await loadFiles();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No se pudo procesar el archivo.");
     } finally {
@@ -186,6 +225,18 @@ export default function AvailableFilesPage() {
             >
               Cerrar
             </button>
+          </div>
+        ) : null}
+
+        {progress && !progress.completed ? (
+          <div className="notice" role="status">
+            <span className="notice__line" aria-hidden="true" />
+            <span>
+              Procesando {progress.fileName}: {progress.percentage.toFixed(1)}%
+              {progress.totalRecords > 0
+                ? ` (${progress.processedCount + progress.rejectedCount} de ${progress.totalRecords} filas)`
+                : ""}
+            </span>
           </div>
         ) : null}
 
