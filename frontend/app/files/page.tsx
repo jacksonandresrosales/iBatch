@@ -304,7 +304,7 @@ export default function ProcessedFilesPage() {
 
     const normalizedAmount = Number(replacementAmount.replace(",", "."));
     if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
-      setNotice("Ingrese un monto vÃ¡lido mayor que cero para reprocesar.");
+      setNotice("Ingrese un monto válido mayor que cero para reprocesar.");
       return;
     }
 
@@ -319,11 +319,11 @@ export default function ProcessedFilesPage() {
       setIsReprocessOpen(false);
       setNotice(
         result.status === "PROCESADO"
-          ? `TransacciÃ³n reprocesada correctamente en ${selectedFile.name}.`
-          : "La transacciÃ³n fue reprocesada, pero continÃºa rechazada.",
+          ? `Transacción reprocesada correctamente en ${selectedFile.name}.`
+          : "La transacción fue reprocesada, pero continúa rechazada.",
       );
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No se pudo reprocesar la transacciÃ³n.");
+      setNotice(error instanceof Error ? error.message : "No se pudo reprocesar la transacción.");
     } finally {
       setIsReprocessing(false);
     }
@@ -336,16 +336,16 @@ export default function ProcessedFilesPage() {
       <main>
         <section className="page-intro">
           <div>
-            <p className="eyebrow">Operaciones / Control histÃ³rico</p>
+            <p className="eyebrow">Operaciones / Control histórico</p>
             <h1>Historial de archivos</h1>
             <p className="page-description">
-              Consulte el resultado de cada lote procesado y ubique rÃ¡pidamente
-              los archivos que requieren revisiÃ³n.
+              Consulte el resultado de cada lote procesado y ubique rápidamente
+              los archivos que requieren revisión.
             </p>
           </div>
 
           <div className="sync-summary">
-            <span className="sync-summary__label">Ãšltima actualizaciÃ³n</span>
+            <span className="sync-summary__label">Última actualización</span>
             <strong>{selectedFile?.processedAt ?? "Sin registros"}</strong>
             <button type="button" className="text-button" onClick={() => void refreshHistory()}>
               Actualizar historial
@@ -363,7 +363,7 @@ export default function ProcessedFilesPage() {
           </div>
         ) : null}
 
-        <section className="operational-overview history-metrics" aria-label="Resumen histÃ³rico">
+        <section className="operational-overview history-metrics" aria-label="Resumen histórico">
           <div className="metric">
             <span>Archivos procesados</span>
             <strong>{files.length.toString().padStart(2, "0")}</strong>
@@ -431,7 +431,7 @@ export default function ProcessedFilesPage() {
                     <th className="number-column">Procesadas</th>
                     <th className="number-column">Rechazadas</th>
                     <th>Procesado</th>
-                    <th>AcciÃ³n</th>
+                    <th>Acción</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -466,13 +466,13 @@ export default function ProcessedFilesPage() {
                           ) : null}
                         </td>
                         <td className="number-column">
-                          {file.total ? numberFormat.format(file.total) : "â€”"}
+                          {file.total ? numberFormat.format(file.total) : "—"}
                         </td>
                         <td className="number-column">
-                          {file.processed ? numberFormat.format(file.processed) : "â€”"}
+                          {file.processed ? numberFormat.format(file.processed) : "—"}
                         </td>
                         <td className="number-column">
-                          {file.rejected ? numberFormat.format(file.rejected) : "â€”"}
+                          {file.rejected ? numberFormat.format(file.rejected) : "—"}
                         </td>
                         <td>{file.processedAt}</td>
                         <td>
@@ -493,7 +493,7 @@ export default function ProcessedFilesPage() {
               {visibleFiles.length === 0 ? (
                 <div className="empty-state">
                   <strong>No se encontraron registros</strong>
-                  <span>Ajuste la bÃºsqueda o el filtro de estado.</span>
+                  <span>Ajuste la búsqueda o el filtro de estado.</span>
                 </div>
               ) : null}
             </div>
@@ -549,7 +549,7 @@ export default function ProcessedFilesPage() {
               </div>
             ) : (
               <div className="selected-file-card__empty">
-                <strong>NingÃºn registro seleccionado</strong>
+                <strong>Ningún registro seleccionado</strong>
                 <span>Seleccione un archivo del historial.</span>
               </div>
             )}
@@ -640,7 +640,7 @@ export default function ProcessedFilesPage() {
             ) : (
               <div className="detail-transactions-content">
                 <div className="detail-transactions__heading">
-                  <p>Vista de transacciones del lote. Los rechazos elegibles pueden reprocesarse modificando Ãºnicamente el monto.</p>
+                  <p>Vista de transacciones del lote. Los rechazos elegibles pueden reprocesarse modificando únicamente el monto.</p>
                   <div className="detail-transaction-filters">
                     <form className="detail-account-search" onSubmit={searchTransactionsByAccount}>
                       <label className="search-field">
@@ -650,7 +650,7 @@ export default function ProcessedFilesPage() {
                           inputMode="numeric"
                           value={transactionAccountQuery}
                           onChange={(event) => setTransactionAccountQuery(event.target.value)}
-                          placeholder="NÃºmero de cuenta"
+                          placeholder="Número de cuenta"
                         />
                       </label>
                       <button type="submit" className="secondary-button">
@@ -677,7 +677,7 @@ export default function ProcessedFilesPage() {
                     </span>
                   </div>
                 </div>
-                <div className="detail-pagination" aria-label="PaginaciÃ³n de transacciones">
+                <div className="detail-pagination" aria-label="Paginación de transacciones">
                   <label className="detail-page-size">
                     <span>Mostrar</span>
                     <select
@@ -691,10 +691,10 @@ export default function ProcessedFilesPage() {
                       <option value="25">25</option>
                       <option value="50">50</option>
                     </select>
-                    <span>por pÃ¡gina</span>
+                    <span>por página</span>
                   </label>
                   <span className="detail-pagination__range">
-                    Mostrando {detailFile.detailTotalElements === 0 ? 0 : (currentTransactionPage - 1) * transactionPageSize + 1}â€“{Math.min(currentTransactionPage * transactionPageSize, detailFile.detailTotalElements)} de {detailFile.detailTotalElements} registros
+                    Mostrando {detailFile.detailTotalElements === 0 ? 0 : (currentTransactionPage - 1) * transactionPageSize + 1}–{Math.min(currentTransactionPage * transactionPageSize, detailFile.detailTotalElements)} de {detailFile.detailTotalElements} registros
                   </span>
                   <div className="detail-pagination__controls">
                     <button
@@ -705,7 +705,7 @@ export default function ProcessedFilesPage() {
                     >
                       Anterior
                     </button>
-                    <span>PÃ¡gina {currentTransactionPage} de {detailPageCount}</span>
+                    <span>Página {currentTransactionPage} de {detailPageCount}</span>
                     <button
                       type="button"
                       className="secondary-button"
@@ -725,7 +725,7 @@ export default function ProcessedFilesPage() {
                         <th>Fecha</th>
                         <th>Estado</th>
                         <th>Motivo de rechazo</th>
-                        <th>AcciÃ³n</th>
+                        <th>Acción</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -751,7 +751,7 @@ export default function ProcessedFilesPage() {
                             </td>
                             <td>
                               <span className="transaction-reason">
-                                {transaction.rejectionReason ?? "â€”"}
+                                {transaction.rejectionReason ?? "—"}
                               </span>
                             </td>
                             <td>
@@ -773,7 +773,7 @@ export default function ProcessedFilesPage() {
                                   Reprocesar
                                 </button>
                               ) : (
-                                <span className="transaction-action-note">Sin acciÃ³n</span>
+                                <span className="transaction-action-note">Sin acción</span>
                               )}
                             </td>
                           </tr>
@@ -784,7 +784,7 @@ export default function ProcessedFilesPage() {
                   {detailTransactions.length === 0 ? (
                     <div className="empty-state">
                       <strong>No se encontraron transacciones</strong>
-                      <span>Revise el nÃºmero de cuenta o el filtro de estado.</span>
+                      <span>Revise el número de cuenta o el filtro de estado.</span>
                     </div>
                   ) : null}
                 </div>
@@ -813,7 +813,7 @@ export default function ProcessedFilesPage() {
               <p className="eyebrow">Reproceso controlado</p>
               <h2 id="reprocess-title">Editar monto rechazado</h2>
               <p>
-                Corrija Ãºnicamente el monto de la transacciÃ³n seleccionada y envÃ­ela nuevamente a validaciÃ³n.
+                Corrija únicamente el monto de la transacción seleccionada y envíela nuevamente a validación.
               </p>
 
               <div className="reprocess-context">
@@ -834,7 +834,7 @@ export default function ProcessedFilesPage() {
                   >
                     <span>
                       <strong>{transaction.account}</strong>
-                      <small>{transaction.date} Â· {transaction.reason}</small>
+                      <small>{transaction.date} · {transaction.reason}</small>
                     </span>
                     <strong>{transaction.amount.toFixed(2)}</strong>
                   </button>

@@ -27,3 +27,12 @@ npm run start
 
 Maven no forma parte del frontend. Se utilizará exclusivamente para gestionar
 el backend Spring Boot.
+
+
+La aplicación consume el backend mediante `NEXT_PUBLIC_API_BASE_URL`.
+
+Crear un archivo `.env.local` si el backend no está en la dirección predeterminada:
+
+```env
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
+```
