@@ -19,6 +19,7 @@ import com.iroute.ibatch.domain.model.FileTransactionCounters;
 import com.iroute.ibatch.domain.model.ProcessedTransaction;
 import com.iroute.ibatch.domain.model.TransactionRejection;
 import com.iroute.ibatch.domain.model.TransactionRejectionDetail;
+import com.iroute.ibatch.domain.model.RejectionReasonSummary;
 
 @Repository
 public class TransactionRepository {
@@ -349,6 +350,18 @@ public class TransactionRepository {
                 resultSet.getInt("total_records"),
                 resultSet.getInt("processed_count"),
                 resultSet.getInt("rejected_count")), fileId);
+    }
+
+    public List<RejectionReasonSummary> findRejectionReasonSummary() {
+        var sql = """
+                SELECT rr.code, rr.name, COUNT(*) AS rejection_count
+                FROM transaction_rejections tr
+                INNER JOIN rejection_reason rr ON rr.rejection_reason_id = tr.rejection_reason_id
+                GROUP BY rr.code, rr.name
+                ORDER BY rejection_count DESC, rr.code ASC
+                """;
+        return jdbcTemplate.query(sql, (resultSet, rowNumber) -> new RejectionReasonSummary(
+                resultSet.getString("code"), resultSet.getString("name"), resultSet.getInt("rejection_count")));
     }
 
     private int toStatusId(String status) {
