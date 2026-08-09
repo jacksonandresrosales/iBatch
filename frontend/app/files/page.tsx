@@ -202,7 +202,7 @@ export default function ProcessedFilesPage() {
   };
 
   useEffect(() => {
-    void refreshHistory(false);
+    void Promise.resolve().then(() => refreshHistory(false));
 
     const interval = setInterval(() => {
       void getProcessedFiles().then(data => {

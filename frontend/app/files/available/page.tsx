@@ -1,12 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import {
-  getAvailableFiles,
-  getFileProgress,
-  processFile,
-  type FileProgressResponse,
-} from "../../../lib/api";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { getAvailableFiles, processFile, getFileProgress, type FileProgressResponse } from "../../../lib/api";
 
 type AvailableFile = {
   id: string;
@@ -16,32 +11,21 @@ type AvailableFile = {
   size: string;
 };
 
-function formatFileDate(fileName: string) {
-  const match = fileName.match(/^transactions_(\d{2})(\d{2})(\d{4})\.csv$/i);
-  return match ? `${match[1]}/${match[2]}/${match[3]}` : "Fecha no disponible";
-}
-
-function formatFileSize(sizeBytes: number) {
-  return new Intl.NumberFormat("es-EC", {
-    style: "unit",
-    unit: "megabyte",
-    maximumFractionDigits: 2,
-  }).format(sizeBytes / 1024 / 1024);
-}
-
-function mapAvailableFile(file: Awaited<ReturnType<typeof getAvailableFiles>>[number]): AvailableFile {
-  const detectedAt = new Intl.DateTimeFormat("es-EC", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(new Date(file.lastModifiedAt));
+function formatFile(fileName: string, sizeBytes: number, lastModifiedAt: string): AvailableFile {
+  const timestamp = new Date(lastModifiedAt);
+  const datePart = fileName.match(/transactions_(\d{2})(\d{2})(\d{4})\.csv/i);
 
   return {
-    id: file.fileName,
-    name: file.fileName,
-    batchDate: formatFileDate(file.fileName),
-    detectedAt,
-    size: formatFileSize(file.sizeBytes),
+    id: fileName,
+    name: fileName,
+    batchDate: datePart
+      ? new Intl.DateTimeFormat("es-EC", { day: "2-digit", month: "short", year: "numeric" })
+          .format(new Date(Number(datePart[3]), Number(datePart[2]) - 1, Number(datePart[1])))
+      : "Fecha no disponible",
+    detectedAt: new Intl.DateTimeFormat("es-EC", { hour: "2-digit", minute: "2-digit", hour12: false })
+      .format(timestamp),
+    size: new Intl.NumberFormat("es-EC", { style: "unit", unit: "megabyte", maximumFractionDigits: 2 })
+      .format(sizeBytes / 1024 / 1024),
   };
 }
 
@@ -51,10 +35,11 @@ export default function AvailableFilesPage() {
   const [query, setQuery] = useState("");
   const [isConfirming, setIsConfirming] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [progress, setProgress] = useState<FileProgressResponse | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [lastSync, setLastSync] = useState("Hoy, 08:45");
+  const [lastSync, setLastSync] = useState("Sincronización pendiente");
+  const [progress, setProgress] = useState<FileProgressResponse | null>(null);
+  const [isProgressModalOpen, setIsProgressModalOpen] = useState(false);
+  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const selectedFile = files.find((file) => file.id === selectedId) ?? null;
   const visibleFiles = useMemo(() => {
@@ -65,51 +50,6 @@ export default function AvailableFilesPage() {
     );
   }, [files, query]);
 
-  const loadFiles = async (showSuccessNotice = false) => {
-    setIsLoading(true);
-    try {
-      const availableFiles = (await getAvailableFiles()).map(mapAvailableFile);
-      setFiles(availableFiles);
-      setSelectedId((current) =>
-        availableFiles.some((file) => file.id === current)
-          ? current
-          : availableFiles[0]?.id ?? "",
-      );
-      if (showSuccessNotice) setNotice("Directorio actualizado correctamente.");
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "No se pudo consultar el directorio.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void loadFiles();
-  }, []);
-
-  useEffect(() => {
-    if (!progress || progress.completed) return;
-
-    const pollProgress = async () => {
-      try {
-        const currentProgress = await getFileProgress(progress.fileId);
-        setProgress(currentProgress);
-        if (currentProgress.completed) {
-          setNotice(currentProgress.error
-            ? "El procesamiento terminó con error."
-            : `El archivo ${currentProgress.fileName} terminó de procesarse.`);
-          await loadFiles();
-        }
-      } catch (error) {
-        setNotice(error instanceof Error ? error.message : "No se pudo consultar el progreso.");
-      }
-    };
-
-    const intervalId = window.setInterval(() => void pollProgress(), 3000);
-    void pollProgress();
-    return () => window.clearInterval(intervalId);
-  }, [progress]);
-
   useEffect(() => {
     if (!isConfirming) return;
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -119,26 +59,50 @@ export default function AvailableFilesPage() {
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [isConfirming, isProcessing]);
 
-  const refreshFiles = () => {
+  const refreshFiles = async () => {
+    setNotice(null);
+    try {
+      const availableFiles = await getAvailableFiles();
+      const nextFiles = availableFiles.map((file) =>
+        formatFile(file.fileName, file.sizeBytes, file.lastModifiedAt),
+      );
+      setFiles(nextFiles);
+      setSelectedId((currentId) =>
+        nextFiles.some((file) => file.id === currentId) ? currentId : (nextFiles[0]?.id ?? ""),
+      );
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No se pudo consultar el directorio.");
+    }
     const time = new Intl.DateTimeFormat("es-EC", {
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
     }).format(new Date());
     setLastSync(`Hoy, ${time}`);
-    void loadFiles(true);
+  };
+
+  useEffect(() => {
+    void Promise.resolve().then(refreshFiles);
+    return () => {
+      if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+    };
+  }, []);
+
+  const updateDirectory = () => {
+    void refreshFiles();
   };
 
   const processSelectedFile = async () => {
     if (!selectedFile) return;
     setIsProcessing(true);
     try {
-      const response = await processFile(selectedFile.name);
+      const result = await processFile(selectedFile.name);
       setIsConfirming(false);
       setSelectedId("");
+      setIsProgressModalOpen(true);
       setProgress({
-        fileId: response.fileId,
-        fileName: response.fileName,
+        fileId: result.fileId,
+        fileName: result.fileName,
         processedCount: 0,
         rejectedCount: 0,
         totalRecords: 0,
@@ -147,9 +111,25 @@ export default function AvailableFilesPage() {
         completed: false,
         error: false,
       });
-      setNotice(response.message || `${selectedFile.name} fue enviado al procesamiento.`);
+
+      const fileId = result.fileId;
+      if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+      progressTimerRef.current = setInterval(async () => {
+        try {
+          const currentProgress = await getFileProgress(fileId);
+          setProgress(currentProgress);
+          if (currentProgress.completed) {
+            if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+            progressTimerRef.current = null;
+            void refreshFiles();
+          }
+        } catch {
+          // ignore transient poll error
+        }
+      }, 1000);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "No se pudo procesar el archivo.");
+      setIsConfirming(false);
     } finally {
       setIsProcessing(false);
     }
@@ -208,7 +188,7 @@ export default function AvailableFilesPage() {
           <div className="sync-summary">
             <span className="sync-summary__label">Última sincronización</span>
             <strong>{lastSync}</strong>
-            <button type="button" className="text-button" onClick={refreshFiles}>
+            <button type="button" className="text-button" onClick={updateDirectory}>
               Actualizar directorio
             </button>
           </div>
@@ -225,18 +205,6 @@ export default function AvailableFilesPage() {
             >
               Cerrar
             </button>
-          </div>
-        ) : null}
-
-        {progress && !progress.completed ? (
-          <div className="notice" role="status">
-            <span className="notice__line" aria-hidden="true" />
-            <span>
-              Procesando {progress.fileName}: {progress.percentage.toFixed(1)}%
-              {progress.totalRecords > 0
-                ? ` (${progress.processedCount + progress.rejectedCount} de ${progress.totalRecords} filas)`
-                : ""}
-            </span>
           </div>
         ) : null}
 
@@ -331,13 +299,8 @@ export default function AvailableFilesPage() {
                 </tbody>
               </table>
 
-                  {isLoading ? (
-                    <div className="empty-state">
-                      <strong>Consultando archivos</strong>
-                      <span>Espere mientras se actualiza el directorio.</span>
-                    </div>
-                  ) : visibleFiles.length === 0 ? (
-                    <div className="empty-state">
+              {visibleFiles.length === 0 ? (
+                <div className="empty-state">
                   <strong>No se encontraron archivos</strong>
                   <span>
                     Revise el término de búsqueda o actualice el directorio.
@@ -353,7 +316,7 @@ export default function AvailableFilesPage() {
               <button
                 type="button"
                 className="primary-button"
-                disabled={!selectedFile || isLoading || isProcessing}
+                disabled={!selectedFile}
                 onClick={() => setIsConfirming(true)}
               >
                 Procesar archivo seleccionado
@@ -447,6 +410,81 @@ export default function AvailableFilesPage() {
                   ? "Iniciando procesamiento..."
                   : "Confirmar y procesar"}
               </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {isProgressModalOpen && progress ? (
+        <div className="modal-backdrop" role="presentation">
+          <section className="live-progress-modal" role="dialog" aria-modal="true">
+            <div className="modal-accent" aria-hidden="true" />
+
+            <div className="live-progress-header">
+              <div className="live-progress-title">
+                <p className="eyebrow">Procesamiento en tiempo real</p>
+                <h2>{progress.fileName}</h2>
+              </div>
+              <span className={`live-progress-badge ${!progress.completed ? "live-progress-badge--processing" : ""}`}>
+                {!progress.completed && <span className="live-progress-badge__dot" />}
+                {progress.completed
+                  ? progress.status === "PROCESADO_CON_RECHAZOS"
+                    ? "Completado con rechazos"
+                    : "Completado exitosamente"
+                  : "Procesando en vivo..."}
+              </span>
+            </div>
+
+            <div className="progress-track-wrapper">
+              <div className="progress-track" aria-label={`Progreso: ${progress.percentage}%`}>
+                <div className="progress-fill" style={{ width: `${Math.max(5, progress.percentage)}%` }} />
+              </div>
+              <div className="progress-meta">
+                <span>Avance: <strong>{progress.percentage.toFixed(1)}%</strong></span>
+                <span>
+                  <strong>{(progress.processedCount + progress.rejectedCount).toLocaleString("es-EC")}</strong>
+                  {progress.totalRecords > 0 ? <> de <strong>{progress.totalRecords.toLocaleString("es-EC")}</strong></> : null} filas
+                </span>
+              </div>
+            </div>
+
+            <div className="progress-stats-grid">
+              <div className="progress-stat-card">
+                <label>Leídas</label>
+                <strong>{(progress.processedCount + progress.rejectedCount).toLocaleString("es-EC")}</strong>
+              </div>
+              <div className="progress-stat-card">
+                <label>Válidas</label>
+                <strong className="text-processed">{progress.processedCount.toLocaleString("es-EC")}</strong>
+              </div>
+              <div className="progress-stat-card">
+                <label>Rechazadas</label>
+                <strong className="text-rejected">{progress.rejectedCount.toLocaleString("es-EC")}</strong>
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              {progress.completed ? (
+                <>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => {
+                      setIsProgressModalOpen(false);
+                      setProgress(null);
+                    }}
+                  >
+                    Cerrar
+                  </button>
+                  <a href="/files" className="primary-button" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
+                    Ver en historial
+                  </a>
+                </>
+              ) : (
+                <button type="button" className="secondary-button" disabled style={{ width: "100%", justifyContent: "center" }}>
+                  Procesando lote masivo...
+                </button>
+              )}
             </div>
           </section>
         </div>
