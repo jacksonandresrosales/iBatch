@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { getAvailableFiles, processFile } from "../../../lib/api";
 
 type AvailableFile = {
   id: string;
@@ -10,36 +11,42 @@ type AvailableFile = {
   size: string;
 };
 
-const initialFiles: AvailableFile[] = [
-  {
-    id: "batch-30072026",
-    name: "transactions_30072026.csv",
-    batchDate: "30 jul 2026",
-    detectedAt: "08:42",
-    size: "1,84 MB",
-  },
-  {
-    id: "batch-29072026",
-    name: "transactions_29072026.csv",
-    batchDate: "29 jul 2026",
-    detectedAt: "07:58",
-    size: "2,12 MB",
-  },
-  {
-    id: "batch-28072026",
-    name: "transactions_28072026.csv",
-    batchDate: "28 jul 2026",
-    detectedAt: "08:11",
-    size: "1,67 MB",
-  },
-];
+function formatFileDate(fileName: string) {
+  const match = fileName.match(/^transactions_(\d{2})(\d{2})(\d{4})\.csv$/i);
+  return match ? `${match[1]}/${match[2]}/${match[3]}` : "Fecha no disponible";
+}
+
+function formatFileSize(sizeBytes: number) {
+  return new Intl.NumberFormat("es-EC", {
+    style: "unit",
+    unit: "megabyte",
+    maximumFractionDigits: 2,
+  }).format(sizeBytes / 1024 / 1024);
+}
+
+function mapAvailableFile(file: Awaited<ReturnType<typeof getAvailableFiles>>[number]): AvailableFile {
+  const detectedAt = new Intl.DateTimeFormat("es-EC", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(file.lastModifiedAt));
+
+  return {
+    id: file.fileName,
+    name: file.fileName,
+    batchDate: formatFileDate(file.fileName),
+    detectedAt,
+    size: formatFileSize(file.sizeBytes),
+  };
+}
 
 export default function AvailableFilesPage() {
-  const [files, setFiles] = useState(initialFiles);
-  const [selectedId, setSelectedId] = useState(initialFiles[0]?.id ?? "");
+  const [files, setFiles] = useState<AvailableFile[]>([]);
+  const [selectedId, setSelectedId] = useState("");
   const [query, setQuery] = useState("");
   const [isConfirming, setIsConfirming] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const [lastSync, setLastSync] = useState("Hoy, 08:45");
 
@@ -51,6 +58,28 @@ export default function AvailableFilesPage() {
       file.name.toLowerCase().includes(normalizedQuery),
     );
   }, [files, query]);
+
+  const loadFiles = async (showSuccessNotice = false) => {
+    setIsLoading(true);
+    try {
+      const availableFiles = (await getAvailableFiles()).map(mapAvailableFile);
+      setFiles(availableFiles);
+      setSelectedId((current) =>
+        availableFiles.some((file) => file.id === current)
+          ? current
+          : availableFiles[0]?.id ?? "",
+      );
+      if (showSuccessNotice) setNotice("Directorio actualizado correctamente.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No se pudo consultar el directorio.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadFiles();
+  }, []);
 
   useEffect(() => {
     if (!isConfirming) return;
@@ -68,23 +97,23 @@ export default function AvailableFilesPage() {
       hour12: false,
     }).format(new Date());
     setLastSync(`Hoy, ${time}`);
-    setNotice("Directorio actualizado. No se detectaron cambios.");
+    void loadFiles(true);
   };
 
-  const processSelectedFile = () => {
+  const processSelectedFile = async () => {
     if (!selectedFile) return;
     setIsProcessing(true);
-    window.setTimeout(() => {
-      setFiles((current) =>
-        current.filter((file) => file.id !== selectedFile.id),
-      );
-      setSelectedId("");
-      setIsProcessing(false);
+    try {
+      const response = await processFile(selectedFile.name);
       setIsConfirming(false);
-      setNotice(
-        `${selectedFile.name} fue enviado al flujo de procesamiento.`,
-      );
-    }, 1200);
+      setSelectedId("");
+      setNotice(response.message || `${selectedFile.name} fue enviado al procesamiento.`);
+      await loadFiles();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No se pudo procesar el archivo.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -251,8 +280,13 @@ export default function AvailableFilesPage() {
                 </tbody>
               </table>
 
-              {visibleFiles.length === 0 ? (
-                <div className="empty-state">
+                  {isLoading ? (
+                    <div className="empty-state">
+                      <strong>Consultando archivos</strong>
+                      <span>Espere mientras se actualiza el directorio.</span>
+                    </div>
+                  ) : visibleFiles.length === 0 ? (
+                    <div className="empty-state">
                   <strong>No se encontraron archivos</strong>
                   <span>
                     Revise el término de búsqueda o actualice el directorio.
@@ -268,7 +302,7 @@ export default function AvailableFilesPage() {
               <button
                 type="button"
                 className="primary-button"
-                disabled={!selectedFile}
+                disabled={!selectedFile || isLoading || isProcessing}
                 onClick={() => setIsConfirming(true)}
               >
                 Procesar archivo seleccionado
