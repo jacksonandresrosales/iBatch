@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AppHeader from "../components/AppHeader";
+import { getProcessingLogs, type ProcessingLogResponse } from "../../lib/api";
 
 type AuditSeverity = "INFO" | "WARN" | "ERROR";
 
@@ -110,10 +111,39 @@ export default function AuditPage() {
     "TODOS",
   );
   const [notice, setNotice] = useState<string | null>(null);
+  const [logs, setLogs] = useState<ProcessingLogResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadLogs = async () => {
+    setIsLoading(true);
+    try {
+      setLogs((await getProcessingLogs(0, 100)).content);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No se pudieron consultar los eventos.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadLogs();
+  }, []);
+
+  const auditEvents: AuditEvent[] = logs.map((log) => ({
+    id: String(log.id),
+    timestamp: log.createdAt,
+    isoTimestamp: log.createdAt,
+    severity: log.level === "WARNING" ? "WARN" : log.level === "ERROR" ? "ERROR" : "INFO",
+    event: log.event,
+    file: log.fileName ?? "Sin archivo",
+    message: log.message,
+    source: "iBatch",
+    correlationId: log.fileId ? `file-${log.fileId}` : "sin-correlacion",
+  }));
 
   const visibleEvents = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    return initialAuditEvents.filter((event) => {
+    return auditEvents.filter((event) => {
       const matchesQuery = [event.event, event.file, event.message, event.source]
         .join(" ")
         .toLowerCase()
@@ -122,7 +152,7 @@ export default function AuditPage() {
         severityFilter === "TODOS" || event.severity === severityFilter;
       return matchesQuery && matchesSeverity;
     });
-  }, [query, severityFilter]);
+  }, [auditEvents, query, severityFilter]);
 
   const exportLogs = () => {
     const header = [

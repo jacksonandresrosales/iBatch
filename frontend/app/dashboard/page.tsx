@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AppHeader from "../components/AppHeader";
+import { getDashboardSummary, type DashboardSummaryResponse } from "../../lib/api";
 
-type DashboardStatus = "PROCESADO" | "PROCESADO_CON_RECHAZOS" | "ERROR";
+type DashboardStatus = "PROCESANDO" | "PROCESADO" | "PROCESADO_CON_RECHAZOS" | "ERROR";
 
 type RecentFile = {
   id: string;
@@ -70,6 +71,7 @@ const rejectionRate = ((totalRejected / (totalProcessed + totalRejected)) * 100)
 const maxReasonCount = Math.max(...rejectionReasons.map((reason) => reason.count));
 
 function statusLabel(status: DashboardStatus) {
+  if (status === "PROCESANDO") return "Procesando";
   if (status === "PROCESADO_CON_RECHAZOS") return "Con rechazos";
   if (status === "ERROR") return "Error";
   return "Procesado";
@@ -77,9 +79,39 @@ function statusLabel(status: DashboardStatus) {
 
 export default function DashboardPage() {
   const [notice, setNotice] = useState<string | null>(null);
+  const [summary, setSummary] = useState<DashboardSummaryResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadDashboard = async (showNotice = false) => {
+    setIsLoading(true);
+    try {
+      setSummary(await getDashboardSummary());
+      if (showNotice) setNotice("Dashboard actualizado correctamente.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No se pudo consultar el dashboard.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadDashboard();
+  }, []);
+
+  const recentFiles = summary?.recentFiles.map((file) => ({
+    id: String(file.id), name: file.fileName, processedAt: file.updatedAt,
+    processed: file.processedTransactions, rejected: file.rejectedTransactions, status: file.status,
+  })) ?? [];
+  const rejectionReasons = summary?.rejectionReasons.map((reason) => ({
+    label: reason.name, code: reason.code, count: reason.count,
+  })) ?? [];
+  const totalProcessed = summary?.totalProcessedTransactions ?? 0;
+  const totalRejected = summary?.totalRejectedTransactions ?? 0;
+  const rejectionRate = (summary?.rejectionRate ?? 0).toFixed(2);
+  const maxReasonCount = Math.max(1, ...rejectionReasons.map((reason) => reason.count));
 
   const refreshDashboard = () => {
-    setNotice("Dashboard actualizado. Se muestran los últimos indicadores disponibles.");
+    void loadDashboard(true);
   };
 
   return (
@@ -118,8 +150,8 @@ export default function DashboardPage() {
         <section className="operational-overview dashboard-metrics" aria-label="Indicadores operativos">
           <div className="metric">
             <span>Archivos procesados</span>
-            <strong>26</strong>
-            <small className="metric-trend metric-trend--positive">+4 este periodo</small>
+            <strong>{summary?.totalFiles ?? (isLoading ? "..." : 0)}</strong>
+            <small className="metric-trend metric-trend--positive">Datos del backend</small>
           </div>
           <div className="metric">
             <span>Transacciones procesadas</span>
