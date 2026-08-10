@@ -89,6 +89,6 @@ class CsvTransactionProcessorTest {
 
         assertThatThrownBy(() -> processor.process(10L, inputFile))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("La estructura del archivo no es valida");
+                .hasMessage("La estructura del archivo no es valida. Use los encabezados cuenta,monto,fecha");
     }
 }

@@ -9,6 +9,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,7 +17,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.iroute.ibatch.application.usecase.AvailableFileService;
 import com.iroute.ibatch.application.usecase.FileProcessingService;
@@ -77,6 +80,11 @@ public class FileController {
     @GetMapping("/available")
     public List<AvailableFileResponse> getAvailableFiles() {
         return availableFileService.findAvailableFiles();
+    }
+
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<AvailableFileResponse> uploadFile(@RequestPart("file") MultipartFile file) {
+        return ResponseEntity.status(201).body(availableFileService.uploadCsv(file));
     }
 
     @PostMapping("/process")

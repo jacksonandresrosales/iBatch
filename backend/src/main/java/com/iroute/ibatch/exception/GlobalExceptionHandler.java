@@ -6,10 +6,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 import jakarta.validation.ConstraintViolationException;
 
@@ -37,6 +40,23 @@ public class GlobalExceptionHandler {
             HttpMessageNotReadableException.class})
     public ResponseEntity<ErrorResponse> handleInvalidRequest() {
         return buildBadRequest("La solicitud no es valida");
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleUploadTooLarge() {
+        return ResponseEntity
+                .status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(new ErrorResponse("El archivo excede el tamano maximo permitido de 50 MB", OffsetDateTime.now()));
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ErrorResponse> handleMissingUpload() {
+        return buildBadRequest("Debe seleccionar un archivo CSV");
+    }
+
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidMultipart() {
+        return buildBadRequest("No se pudo leer el archivo enviado");
     }
 
     @ExceptionHandler(DataAccessException.class)

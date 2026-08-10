@@ -2,6 +2,7 @@ package com.iroute.ibatch.controller;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -17,6 +18,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.mock.web.MockMultipartFile;
 
 import com.iroute.ibatch.application.usecase.AvailableFileService;
 import com.iroute.ibatch.application.usecase.FileProcessingService;
@@ -88,6 +90,28 @@ class FileControllerTest {
                 .andExpect(jsonPath("$[0].fileName").value("transactions_30072026.csv"))
                 .andExpect(jsonPath("$[0].sizeBytes").value(1024))
                 .andExpect(jsonPath("$[0].expectedFormat").value(true));
+    }
+
+    @Test
+    void shouldUploadCsvFile() throws Exception {
+        var upload = new MockMultipartFile(
+                "file",
+                "transactions_31072026.csv",
+                "text/csv",
+                "cuenta,monto,fecha\n2000000000,10.00,31/07/2026\n".getBytes());
+        var response = new AvailableFileResponse(
+                "transactions_31072026.csv",
+                upload.getSize(),
+                OffsetDateTime.parse("2026-07-31T10:30:00-05:00"),
+                true);
+
+        when(availableFileService.uploadCsv(upload)).thenReturn(response);
+
+        mockMvc.perform(multipart("/files/upload").file(upload))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.fileName").value("transactions_31072026.csv"))
+                .andExpect(jsonPath("$.sizeBytes").value(upload.getSize()))
+                .andExpect(jsonPath("$.expectedFormat").value(true));
     }
 
     @Test

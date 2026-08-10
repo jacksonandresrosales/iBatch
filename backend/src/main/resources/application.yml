@@ -8,6 +8,10 @@ server:
 spring:
   application:
     name: ibatch-backend
+  servlet:
+    multipart:
+      max-file-size: ${MAX_MULTIPART_FILE_SIZE:50MB}
+      max-request-size: ${MAX_MULTIPART_REQUEST_SIZE:51MB}
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   datasource:

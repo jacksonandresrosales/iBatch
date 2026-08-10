@@ -272,6 +272,60 @@ h1 {
   text-transform: uppercase;
 }
 
+.sync-summary__label-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.refresh-button {
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--teal-600);
+  border-radius: 1px;
+  background: var(--white);
+  color: var(--teal-700);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    opacity 150ms ease;
+}
+
+.refresh-button svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.refresh-button:hover:not(:disabled) {
+  border-color: var(--teal-600);
+  background: #f7fbfa;
+}
+
+.refresh-button:focus-visible,
+.upload-button:focus-visible {
+  outline: 2px solid var(--teal-600);
+  outline-offset: 3px;
+}
+
+.refresh-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.refresh-button:disabled svg {
+  animation: upload-activity 700ms linear infinite;
+}
+
 .sync-summary strong {
   font-size: 16px;
 }
@@ -284,6 +338,81 @@ h1 {
   cursor: pointer;
   font-size: 12px;
   font-weight: 700;
+}
+
+.text-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.sync-actions {
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.upload-button {
+  min-height: 34px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--ink-300);
+  border-radius: 1px;
+  background: var(--white);
+  color: var(--ink-900);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 750;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    opacity 150ms ease;
+}
+
+.upload-button svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.upload-button:hover:not(:disabled) {
+  border-color: var(--teal-600);
+  background: #f7fbfa;
+  color: var(--teal-700);
+}
+
+.upload-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.upload-button__activity {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--teal-100);
+  border-top-color: var(--teal-700);
+  border-radius: 50%;
+  animation: upload-activity 700ms linear infinite;
+}
+
+.sync-summary__hint {
+  color: var(--ink-500);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+@keyframes upload-activity {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .notice {
@@ -303,6 +432,15 @@ h1 {
   align-self: stretch;
   width: 4px;
   background: var(--teal-600);
+}
+
+.notice--error {
+  border-color: rgba(168, 103, 57, 0.28);
+  background: #fdf9f6;
+}
+
+.notice--error .notice__line {
+  background: var(--copper-600);
 }
 
 .notice button {
@@ -1962,6 +2100,12 @@ input[type="radio"] {
 
   .sync-summary {
     min-width: 0;
+    padding-inline-start: 0;
+    border-inline-start: 0;
+  }
+
+  .sync-actions {
+    flex-wrap: wrap;
   }
 
   .operational-overview {
@@ -2142,6 +2286,10 @@ input[type="radio"] {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .upload-button__activity {
+    animation: none;
+  }
+
   *,
   *::before,
   *::after {

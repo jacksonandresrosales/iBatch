@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getAvailableFiles, processFile, getFileProgress, type FileProgressResponse } from "../../../lib/api";
+import { getAvailableFiles, processFile, getFileProgress, uploadCsv, type FileProgressResponse } from "../../../lib/api";
+
+const MAX_CSV_SIZE_BYTES = 52_428_800;
+const CSV_FILE_PATTERN = /^transactions_(\d{2})(\d{2})(\d{4})\.csv$/i;
 
 type AvailableFile = {
   id: string;
@@ -29,17 +32,49 @@ function formatFile(fileName: string, sizeBytes: number, lastModifiedAt: string)
   };
 }
 
+function validateCsvUpload(file: File): string | null {
+  if (file.size === 0) {
+    return "El archivo CSV está vacío. Seleccione uno que contenga transacciones.";
+  }
+  if (file.size > MAX_CSV_SIZE_BYTES) {
+    return "El archivo supera el límite permitido de 50 MB.";
+  }
+
+  const datePart = file.name.match(CSV_FILE_PATTERN);
+  if (!datePart) {
+    return "El nombre debe seguir el formato transactions_DDMMYYYY.csv.";
+  }
+
+  const day = Number(datePart[1]);
+  const month = Number(datePart[2]);
+  const year = Number(datePart[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year
+    || date.getUTCMonth() !== month - 1
+    || date.getUTCDate() !== day
+  ) {
+    return "La fecha incluida en el nombre del archivo no es válida.";
+  }
+
+  return null;
+}
+
 export default function AvailableFilesPage() {
   const [files, setFiles] = useState<AvailableFile[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [query, setQuery] = useState("");
   const [isConfirming, setIsConfirming] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [noticeTone, setNoticeTone] = useState<"success" | "error">("success");
   const [lastSync, setLastSync] = useState("Sincronización pendiente");
   const [progress, setProgress] = useState<FileProgressResponse | null>(null);
   const [isProgressModalOpen, setIsProgressModalOpen] = useState(false);
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
 
   const selectedFile = files.find((file) => file.id === selectedId) ?? null;
   const visibleFiles = useMemo(() => {
@@ -60,6 +95,7 @@ export default function AvailableFilesPage() {
   }, [isConfirming, isProcessing]);
 
   const refreshFiles = async () => {
+    setIsRefreshing(true);
     setNotice(null);
     try {
       const availableFiles = await getAvailableFiles();
@@ -71,7 +107,10 @@ export default function AvailableFilesPage() {
         nextFiles.some((file) => file.id === currentId) ? currentId : (nextFiles[0]?.id ?? ""),
       );
     } catch (error) {
+      setNoticeTone("error");
       setNotice(error instanceof Error ? error.message : "No se pudo consultar el directorio.");
+    } finally {
+      setIsRefreshing(false);
     }
     const time = new Intl.DateTimeFormat("es-EC", {
       hour: "2-digit",
@@ -90,6 +129,44 @@ export default function AvailableFilesPage() {
 
   const updateDirectory = () => {
     void refreshFiles();
+  };
+
+  const uploadSelectedCsv = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    const validationError = validateCsvUpload(file);
+    if (validationError) {
+      setNoticeTone("error");
+      setNotice(validationError);
+      return;
+    }
+
+    setIsUploading(true);
+    setNotice(null);
+    try {
+      const uploadedFile = await uploadCsv(file);
+      const formattedFile = formatFile(
+        uploadedFile.fileName,
+        uploadedFile.sizeBytes,
+        uploadedFile.lastModifiedAt,
+      );
+
+      setFiles((currentFiles) =>
+        [...currentFiles.filter((currentFile) => currentFile.id !== formattedFile.id), formattedFile]
+          .sort((first, second) => first.name.localeCompare(second.name)),
+      );
+      setSelectedId(formattedFile.id);
+      setLastSync(`Hoy, ${formattedFile.detectedAt}`);
+      setNoticeTone("success");
+      setNotice(`${formattedFile.name} se subió y está listo para procesar.`);
+    } catch (error) {
+      setNoticeTone("error");
+      setNotice(error instanceof Error ? error.message : "No se pudo subir el archivo CSV.");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const processSelectedFile = async () => {
@@ -128,6 +205,7 @@ export default function AvailableFilesPage() {
         }
       }, 1000);
     } catch (error) {
+      setNoticeTone("error");
       setNotice(error instanceof Error ? error.message : "No se pudo procesar el archivo.");
       setIsConfirming(false);
     } finally {
@@ -186,21 +264,68 @@ export default function AvailableFilesPage() {
           </div>
 
           <div className="sync-summary">
-            <span className="sync-summary__label">Última sincronización</span>
+            <span className="sync-summary__label-row">
+              <span className="sync-summary__label">Última sincronización</span>
+              <button
+                type="button"
+                className="refresh-button"
+                disabled={isRefreshing || isUploading}
+                aria-label="Actualizar directorio"
+                title="Actualizar directorio"
+                onClick={updateDirectory}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20 11a8 8 0 0 0-14.9-3.9L4 9m0 0V5m0 4h4M4 13a8 8 0 0 0 14.9 3.9L20 15m0 0v4m0-4h-4" />
+                </svg>
+              </button>
+            </span>
             <strong>{lastSync}</strong>
-            <button type="button" className="text-button" onClick={updateDirectory}>
-              Actualizar directorio
-            </button>
+            <div className="sync-actions">
+              <button
+                type="button"
+                className="upload-button"
+                disabled={isUploading || isProcessing}
+                aria-busy={isUploading}
+                aria-describedby="upload-requirements"
+                onClick={() => uploadInputRef.current?.click()}
+              >
+                {isUploading ? (
+                  <span className="upload-button__activity" aria-hidden="true" />
+                ) : (
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14" />
+                  </svg>
+                )}
+                {isUploading ? "Subiendo..." : "Subir CSV"}
+              </button>
+              <input
+                ref={uploadInputRef}
+                className="sr-only"
+                type="file"
+                accept=".csv,text/csv"
+                aria-label="Seleccionar archivo CSV para subir"
+                onChange={uploadSelectedCsv}
+              />
+            </div>
+            <span id="upload-requirements" className="sync-summary__hint">
+              CSV UTF-8, hasta 50 MB
+            </span>
           </div>
         </section>
 
         {notice ? (
-          <div className="notice" role="status">
+          <div
+            className={`notice ${noticeTone === "error" ? "notice--error" : "notice--success"}`}
+            role={noticeTone === "error" ? "alert" : "status"}
+          >
             <span className="notice__line" aria-hidden="true" />
             <span>{notice}</span>
             <button
               type="button"
-              onClick={() => setNotice(null)}
+              onClick={() => {
+                setNotice(null);
+                setNoticeTone("success");
+              }}
               aria-label="Cerrar notificación"
             >
               Cerrar

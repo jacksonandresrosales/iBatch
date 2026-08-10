@@ -24,6 +24,35 @@ class RateLimitFilterTest {
         assertThat(response.getHeader("Retry-After")).isEqualTo("60");
     }
 
+    @Test
+    void shouldLimitCsvUploadsToThreeRequestsPerMinute() throws Exception {
+        var filter = new RateLimitFilter();
+
+        for (var requestNumber = 1; requestNumber <= 3; requestNumber++) {
+            var response = filter(filter, "/files/upload");
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getHeader("X-RateLimit-Limit")).isEqualTo("3");
+        }
+
+        var response = filter(filter, "/files/upload");
+
+        assertThat(response.getStatus()).isEqualTo(429);
+        assertThat(response.getHeader("X-RateLimit-Remaining")).isEqualTo("0");
+        assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+        assertThat(response.getContentAsString()).contains("Demasiadas solicitudes");
+    }
+
+    @Test
+    void shouldLimitFileProcessingToFiveRequestsPerMinute() throws Exception {
+        var filter = new RateLimitFilter();
+
+        for (var requestNumber = 1; requestNumber <= 5; requestNumber++) {
+            assertThat(filter(filter, "/files/process").getStatus()).isEqualTo(200);
+        }
+
+        assertThat(filter(filter, "/files/process").getStatus()).isEqualTo(429);
+    }
+
     private MockHttpServletResponse filter(RateLimitFilter filter, String uri) throws Exception {
         var request = new MockHttpServletRequest("POST", uri);
         var response = new MockHttpServletResponse();
