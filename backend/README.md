@@ -20,6 +20,8 @@ $env:DB_PASSWORD=""
 $env:CORS_ALLOWED_ORIGINS="http://localhost:3000"
 $env:IBATCH_ADMIN_USERNAME="admin"
 $env:IBATCH_ADMIN_PASSWORD="una-contrasena-inicial-segura"
+$env:IBATCH_OPERATOR_USERNAME="operator"
+$env:IBATCH_OPERATOR_PASSWORD="otra-contrasena-inicial-segura"
 $env:SESSION_COOKIE_SECURE="false"
 $env:APP_FILES_INPUT_DIR="C:\iroute\input"
 $env:MAX_FILE_SIZE_BYTES="52428800"
@@ -80,7 +82,9 @@ de cinco solicitudes de procesamiento por minuto por dirección IP. El reproceso
 permite hasta veinte solicitudes por minuto por dirección IP.
 
 Todos los endpoints excepto `GET /api/health`, `GET /auth/csrf` y `POST /auth/login`
-requieren una sesion con rol `ADMIN`. Las solicitudes que modifican datos deben incluir
+requieren una sesion. Los roles `ADMIN` y `OPERATOR` pueden consultar y ejecutar las
+operaciones de archivos, transacciones, dashboard y auditoria. La comprobacion interna
+`GET /api/health/database` es exclusiva de `ADMIN`. Las solicitudes que modifican datos deben incluir
 el encabezado indicado por `GET /auth/csrf`. En produccion configure
 `SESSION_COOKIE_SECURE=true` y proporcione la contrasena inicial como secreto del entorno.
 

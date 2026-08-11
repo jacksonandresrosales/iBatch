@@ -45,3 +45,6 @@ app:
     bootstrap-admin:
       username: ${IBATCH_ADMIN_USERNAME:admin}
       password: ${IBATCH_ADMIN_PASSWORD:}
+    bootstrap-operator:
+      username: ${IBATCH_OPERATOR_USERNAME:operator}
+      password: ${IBATCH_OPERATOR_PASSWORD:}

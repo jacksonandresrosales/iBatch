@@ -52,6 +52,13 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/health", "/auth/csrf").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
                         .requestMatchers("/error").permitAll()
+                        .requestMatchers("/auth/me", "/auth/logout").authenticated()
+                        .requestMatchers(
+                                "/files", "/files/**",
+                                "/transactions/**",
+                                "/dashboard", "/dashboard/**",
+                                "/logs", "/logs/**")
+                                .hasAnyRole("ADMIN", "OPERATOR")
                         .anyRequest().hasRole("ADMIN"))
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
