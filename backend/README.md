@@ -18,6 +18,9 @@ $env:DB_URL="jdbc:mysql://localhost:3306/ibatch?createDatabaseIfNotExist=true&us
 $env:DB_USERNAME="root"
 $env:DB_PASSWORD=""
 $env:CORS_ALLOWED_ORIGINS="http://localhost:3000"
+$env:IBATCH_ADMIN_USERNAME="admin"
+$env:IBATCH_ADMIN_PASSWORD="una-contrasena-inicial-segura"
+$env:SESSION_COOKIE_SECURE="false"
 $env:APP_FILES_INPUT_DIR="C:\iroute\input"
 $env:MAX_FILE_SIZE_BYTES="52428800"
 $env:MAX_FILE_RECORDS="1000000"
@@ -44,6 +47,8 @@ Ejecuta los scripts de la carpeta `database` en orden:
 ```text
 001_create_database.sql
 002_create_batch_processing_model.sql
+003_add_performance_indexes.sql
+004_add_authentication.sql
 ```
 
 ## Ejecutar
@@ -56,7 +61,11 @@ mvn spring-boot:run
 ## Endpoints iniciales
 
 - `GET /api/health`: valida que el backend esta levantado.
-- `GET /api/health/database`: valida la conexion con MySQL.
+- `GET /auth/csrf`: crea la sesion y entrega el token CSRF.
+- `POST /auth/login`: inicia sesion con usuario y contrasena.
+- `POST /auth/logout`: cierra la sesion autenticada.
+- `GET /auth/me`: devuelve el usuario autenticado.
+- `GET /api/health/database`: valida MySQL; requiere rol `ADMIN`.
 - `GET /files/available`: lista los CSV disponibles en el directorio configurado.
 - `GET /files`: lista los archivos procesados registrados en MySQL.
 - `GET /files/{id}`: devuelve el detalle del archivo y sus transacciones.
@@ -69,6 +78,11 @@ mvn spring-boot:run
 El procesamiento utiliza validadores independientes, escritura por lotes y un límite
 de cinco solicitudes de procesamiento por minuto por dirección IP. El reproceso
 permite hasta veinte solicitudes por minuto por dirección IP.
+
+Todos los endpoints excepto `GET /api/health`, `GET /auth/csrf` y `POST /auth/login`
+requieren una sesion con rol `ADMIN`. Las solicitudes que modifican datos deben incluir
+el encabezado indicado por `GET /auth/csrf`. En produccion configure
+`SESSION_COOKIE_SECURE=true` y proporcione la contrasena inicial como secreto del entorno.
 
 ## Pruebas
 

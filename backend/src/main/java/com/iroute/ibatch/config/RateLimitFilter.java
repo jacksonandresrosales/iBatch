@@ -22,6 +22,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final int UPLOAD_FILE_LIMIT = 3;
     private static final int PROCESS_FILE_LIMIT = 5;
     private static final int REPROCESS_LIMIT = 20;
+    private static final int LOGIN_LIMIT = 5;
 
     private final ConcurrentHashMap<String, RequestWindow> windows = new ConcurrentHashMap<>();
     private final AtomicLong lastCleanupAt = new AtomicLong(System.currentTimeMillis());
@@ -66,6 +67,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
         if ("/files/upload".equals(request.getRequestURI())) {
             return UPLOAD_FILE_LIMIT;
+        }
+        if ("/auth/login".equals(request.getRequestURI())) {
+            return LOGIN_LIMIT;
         }
         if ("/files/process".equals(request.getRequestURI())) {
             return PROCESS_FILE_LIMIT;

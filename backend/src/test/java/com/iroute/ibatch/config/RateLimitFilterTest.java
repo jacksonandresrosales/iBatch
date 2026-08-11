@@ -53,6 +53,17 @@ class RateLimitFilterTest {
         assertThat(filter(filter, "/files/process").getStatus()).isEqualTo(429);
     }
 
+    @Test
+    void shouldLimitLoginToFiveRequestsPerMinute() throws Exception {
+        var filter = new RateLimitFilter();
+
+        for (var requestNumber = 1; requestNumber <= 5; requestNumber++) {
+            assertThat(filter(filter, "/auth/login").getStatus()).isEqualTo(200);
+        }
+
+        assertThat(filter(filter, "/auth/login").getStatus()).isEqualTo(429);
+    }
+
     private MockHttpServletResponse filter(RateLimitFilter filter, String uri) throws Exception {
         var request = new MockHttpServletRequest("POST", uri);
         var response = new MockHttpServletResponse();

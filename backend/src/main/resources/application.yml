@@ -1,5 +1,12 @@
 server:
   port: ${SERVER_PORT:8080}
+  servlet:
+    session:
+      timeout: ${SESSION_TIMEOUT:30m}
+      cookie:
+        http-only: true
+        secure: ${SESSION_COOKIE_SECURE:false}
+        same-site: lax
   compression:
     enabled: true
     mime-types: application/json,text/plain
@@ -34,3 +41,7 @@ app:
   processing:
     batch-size: ${PROCESSING_BATCH_SIZE:500}
     max-records: ${MAX_FILE_RECORDS:1000000}
+  security:
+    bootstrap-admin:
+      username: ${IBATCH_ADMIN_USERNAME:admin}
+      password: ${IBATCH_ADMIN_PASSWORD:}

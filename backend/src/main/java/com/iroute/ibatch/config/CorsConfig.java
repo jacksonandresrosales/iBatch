@@ -22,6 +22,7 @@ public class CorsConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         addFrontendCors(registry, "/api/**");
+        addFrontendCors(registry, "/auth/**");
         addFrontendCors(registry, "/files");
         addFrontendCors(registry, "/files/**");
         addFrontendCors(registry, "/transactions/**");
@@ -35,7 +36,8 @@ public class CorsConfig implements WebMvcConfigurer {
         registry.addMapping(pathPattern)
                 .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-                .allowedHeaders("Content-Type", "Accept")
+                .allowedHeaders("Content-Type", "Accept", "X-CSRF-TOKEN")
+                .allowCredentials(true)
                 .maxAge(3600);
     }
 }
