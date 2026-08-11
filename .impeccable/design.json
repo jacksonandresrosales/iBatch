@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-09T00:00:00Z",
+  "title": "Design System: iBatch",
+  "extensions": {
+    "colorMeta": {
+      "ink-deep": {
+        "role": "primary",
+        "displayName": "Tinta profunda",
+        "canonical": "#102a3a",
+        "tonalRamp": ["#07151d", "#102a3a", "#17394b", "#39596a", "#6f8793", "#b8c6cc", "#dce4e7", "#f7f9f9"]
+      },
+      "teal-operational": {
+        "role": "primary",
+        "displayName": "Teal operativo",
+        "canonical": "#2c7d78",
+        "tonalRamp": ["#102e2c", "#174542", "#236b68", "#2c7d78", "#55a09b", "#8bc3bf", "#dcecea", "#f5fbfa"]
+      },
+      "copper-signal": {
+        "role": "tertiary",
+        "displayName": "Cobre de señal",
+        "canonical": "#a86739",
+        "tonalRamp": ["#321d10", "#57341e", "#7f4d2b", "#a86739", "#c58b61", "#ddb397", "#f0d9c9", "#fbf5f0"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Declaración operativa",
+        "purpose": "Mensajes de máxima jerarquía y acceso."
+      },
+      "body": {
+        "displayName": "Texto de trabajo",
+        "purpose": "Instrucciones y contexto operativo."
+      },
+      "label": {
+        "displayName": "Etiqueta precisa",
+        "purpose": "Campos, categorías y metadatos."
+      }
+    },
+    "shadows": [
+      {
+        "name": "soft-overlay",
+        "value": "0 22px 55px rgba(16, 42, 58, 0.08)",
+        "purpose": "Capas temporales o elementos realmente elevados."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-fast",
+        "value": "150ms ease",
+        "purpose": "Hover, foco y cambios de color sin movimiento ornamental."
+      }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "480px" },
+      { "name": "stack", "value": "820px" },
+      { "name": "compact-desktop", "value": "1100px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Acción principal única de una superficie o diálogo.",
+      "html": "<button class=\"ds-button-primary\">Ingresar al sistema</button>",
+      "css": ".ds-button-primary { min-height: 52px; padding: 0 22px; border: 1px solid var(--ink-950, #102a3a); border-radius: 1px; background: var(--ink-950, #102a3a); color: #fff; font: 750 13px 'Segoe UI', sans-serif; cursor: pointer; transition: background 150ms ease, border-color 150ms ease; } .ds-button-primary:hover { background: var(--teal-700, #236b68); border-color: var(--teal-700, #236b68); } .ds-button-primary:focus-visible { outline: 3px solid rgba(44, 125, 120, 0.24); outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Acción complementaria sin competir con la principal.",
+      "html": "<button class=\"ds-button-secondary\">Cancelar</button>",
+      "css": ".ds-button-secondary { min-height: 42px; padding: 0 20px; border: 1px solid var(--ink-300, #b8c6cc); border-radius: 1px; background: #fff; color: var(--ink-900, #17394b); font: 750 12px 'Segoe UI', sans-serif; cursor: pointer; transition: border-color 150ms ease; } .ds-button-secondary:hover { border-color: var(--ink-700, #39596a); } .ds-button-secondary:focus-visible { outline: 3px solid rgba(44, 125, 120, 0.24); outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo etiquetado para credenciales, búsqueda o datos operativos.",
+      "html": "<label class=\"ds-field\"><span>Usuario o correo electrónico</span><input placeholder=\"nombre@empresa.com\"></label>",
+      "css": ".ds-field { display: grid; gap: 9px; color: var(--ink-900, #17394b); font: 750 12px 'Segoe UI', sans-serif; } .ds-field input { height: 52px; padding: 0 15px; border: 1px solid var(--ink-300, #b8c6cc); border-radius: 1px; background: #fff; color: var(--ink-950, #102a3a); font: 400 14px 'Segoe UI', sans-serif; } .ds-field input::placeholder { color: var(--ink-700, #39596a); } .ds-field input:focus { border-color: var(--teal-600, #2c7d78); box-shadow: 0 0 0 3px var(--teal-100, #dcecea); outline: 0; }"
+    },
+    {
+      "name": "Active Navigation Item",
+      "kind": "nav",
+      "description": "Destino activo dentro de la navegación principal.",
+      "html": "<a class=\"ds-nav-active\" href=\"#\">Archivos</a>",
+      "css": ".ds-nav-active { position: relative; display: inline-flex; min-height: 48px; align-items: center; color: var(--ink-950, #102a3a); font: 650 14px 'Segoe UI', sans-serif; text-decoration: none; } .ds-nav-active::after { content: ''; position: absolute; height: 3px; left: 0; right: 0; bottom: 0; background: var(--teal-600, #2c7d78); } .ds-nav-active:focus-visible { outline: 3px solid rgba(44, 125, 120, 0.24); outline-offset: 2px; }"
+    },
+    {
+      "name": "Operational Panel",
+      "kind": "card",
+      "description": "Contenedor plano para tablas, formularios y resúmenes de lote.",
+      "html": "<section class=\"ds-panel\"><header><h3>Lotes disponibles</h3><p>Archivos listos para procesar.</p></header></section>",
+      "css": ".ds-panel { border: 1px solid var(--ink-200, #dce4e7); border-radius: 1px; background: #fff; color: var(--ink-950, #102a3a); font-family: 'Segoe UI', sans-serif; } .ds-panel header { padding: 22px 26px; border-bottom: 1px solid var(--ink-200, #dce4e7); } .ds-panel h3 { margin: 0 0 6px; font-size: 20px; font-weight: 650; letter-spacing: -0.025em; } .ds-panel p { margin: 0; color: var(--ink-700, #39596a); font-size: 13px; line-height: 1.55; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Umbral operativo",
+    "overview": "iBatch debe sentirse como la entrada a una herramienta financiera controlada: seria, técnica, precisa y confiable. La interfaz combina superficies claras, tinta azul marino, señales teal y pequeños acentos cobre. La identidad se apoya en jerarquía, ritmo y geometría funcional, no en ornamento.",
+    "keyCharacteristics": [
+      "Jerarquía tipográfica contundente y directa.",
+      "Superficies planas separadas por bordes finos.",
+      "Geometría ortogonal con esquinas casi rectas.",
+      "Teal para operación y cobre como señal escasa.",
+      "Estados claros, lenguaje sobrio y accesibilidad verificable."
+    ],
+    "rules": [
+      { "name": "Rare Copper", "body": "El cobre no compite con acciones, estados ni alertas; su escasez le da valor.", "section": "colors" },
+      { "name": "Operational Teal", "body": "El teal comunica actividad, selección o foco. No se usa como decoración extensa.", "section": "colors" },
+      { "name": "Flat by Default", "body": "Una superficie permanente no recibe sombra si un borde o cambio tonal puede explicar su jerarquía.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do usar jerarquía, alineación y contraste antes que sombras.",
+      "Do reservar el teal para actividad, selección y foco.",
+      "Do mantener etiquetas visibles, foco perceptible y contraste WCAG AA."
+    ],
+    "donts": [
+      "Don't introducir gradientes multicolor, vidrio, resplandores o radios grandes.",
+      "Don't convertir cada sección en una tarjeta flotante.",
+      "Don't añadir animación ornamental; el movimiento debe explicar estado o respuesta."
+    ]
+  }
+}
