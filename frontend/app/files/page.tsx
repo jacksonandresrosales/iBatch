@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import AppHeader from "../components/AppHeader";
 import {
   getFileDetail,
+  getAuthenticatedUser,
   getProcessedFiles,
   reprocessTransaction as reprocessTransactionRequest,
   type FileDetailResponse,
@@ -128,6 +129,7 @@ export default function ProcessedFilesPage() {
     "TODOS",
   );
   const [notice, setNotice] = useState<string | null>(null);
+  const [canManageRejections, setCanManageRejections] = useState(false);
   const [isReprocessOpen, setIsReprocessOpen] = useState(false);
   const [selectedRejectedId, setSelectedRejectedId] = useState("");
   const [replacementAmount, setReplacementAmount] = useState("");
@@ -202,6 +204,9 @@ export default function ProcessedFilesPage() {
   };
 
   useEffect(() => {
+    void getAuthenticatedUser()
+      .then((user) => setCanManageRejections(user.role === "ADMIN"))
+      .catch(() => undefined);
     void Promise.resolve().then(() => refreshHistory(false));
 
     const interval = setInterval(() => {
@@ -283,6 +288,10 @@ export default function ProcessedFilesPage() {
   };
 
   const openReprocessModal = () => {
+    if (!canManageRejections) {
+      setNotice("Su perfil tiene acceso de solo lectura al historial.");
+      return;
+    }
     const eligibleRejected = selectedFile?.rejectedTransactions.filter(
       (transaction) => canReprocess(transaction.reason),
     ) ?? [];
@@ -300,6 +309,10 @@ export default function ProcessedFilesPage() {
   };
 
   const reprocessTransaction = async () => {
+    if (!canManageRejections) {
+      setNotice("Solo un administrador puede reprocesar transacciones.");
+      return;
+    }
     if (!selectedFile || !selectedRejectedTransaction) return;
 
     const normalizedAmount = Number(replacementAmount.replace(",", "."));
@@ -530,7 +543,7 @@ export default function ProcessedFilesPage() {
                     rechazadas
                   </span>
                 </div>
-                {selectedFile.rejectedTransactions.some((transaction) => canReprocess(transaction.reason)) ? (
+                {canManageRejections && selectedFile.rejectedTransactions.some((transaction) => canReprocess(transaction.reason)) ? (
                   <button
                     type="button"
                     className="secondary-button history-reprocess-button"
@@ -640,7 +653,11 @@ export default function ProcessedFilesPage() {
             ) : (
               <div className="detail-transactions-content">
                 <div className="detail-transactions__heading">
-                  <p>Vista de transacciones del lote. Los rechazos elegibles pueden reprocesarse modificando únicamente el monto.</p>
+                  <p>
+                    {canManageRejections
+                      ? "Vista de transacciones del lote. Los rechazos elegibles pueden reprocesarse modificando únicamente el monto."
+                      : "Vista de transacciones del lote en modo de solo lectura."}
+                  </p>
                   <div className="detail-transaction-filters">
                     <form className="detail-account-search" onSubmit={searchTransactionsByAccount}>
                       <label className="search-field">
@@ -725,7 +742,7 @@ export default function ProcessedFilesPage() {
                         <th>Fecha</th>
                         <th>Estado</th>
                         <th>Motivo de rechazo</th>
-                        <th>Acción</th>
+                        {canManageRejections ? <th>Acción</th> : null}
                       </tr>
                     </thead>
                     <tbody>
@@ -754,28 +771,30 @@ export default function ProcessedFilesPage() {
                                 {transaction.rejectionReason ?? "—"}
                               </span>
                             </td>
-                            <td>
-                              {isRejected && isReprocessable ? (
-                                <button
-                                  type="button"
-                                  className="text-button history-detail-button"
-                                  onClick={() => {
-                                    const rejected = detailFile.rejectedTransactions.find(
-                                      (item) => item.id === transaction.id,
-                                    );
-                                    if (!rejected) return;
-                                    setSelectedId(detailFile.id);
-                                    setSelectedRejectedId(rejected.id);
-                                    setReplacementAmount(rejected.amount.toFixed(2));
-                                    setIsReprocessOpen(true);
-                                  }}
-                                >
-                                  Reprocesar
-                                </button>
-                              ) : (
-                                <span className="transaction-action-note">Sin acción</span>
-                              )}
-                            </td>
+                            {canManageRejections ? (
+                              <td>
+                                {isRejected && isReprocessable ? (
+                                  <button
+                                    type="button"
+                                    className="text-button history-detail-button"
+                                    onClick={() => {
+                                      const rejected = detailFile.rejectedTransactions.find(
+                                        (item) => item.id === transaction.id,
+                                      );
+                                      if (!rejected) return;
+                                      setSelectedId(detailFile.id);
+                                      setSelectedRejectedId(rejected.id);
+                                      setReplacementAmount(rejected.amount.toFixed(2));
+                                      setIsReprocessOpen(true);
+                                    }}
+                                  >
+                                    Reprocesar
+                                  </button>
+                                ) : (
+                                  <span className="transaction-action-note">Sin acción</span>
+                                )}
+                              </td>
+                            ) : null}
                           </tr>
                         );
                       })}
@@ -793,7 +812,7 @@ export default function ProcessedFilesPage() {
           </section>
         ) : null}
 
-        {isReprocessOpen && selectedFile ? (
+        {canManageRejections && isReprocessOpen && selectedFile ? (
           <div
             className="modal-backdrop"
             role="presentation"

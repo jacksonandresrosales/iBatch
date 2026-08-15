@@ -18,8 +18,18 @@ export default function AppHeader({ active }: AppHeaderProps) {
   const [logoutFailed, setLogoutFailed] = useState(false);
 
   useEffect(() => {
-    void getAuthenticatedUser().then(setUser).catch(() => undefined);
-  }, []);
+    void getAuthenticatedUser()
+      .then((authenticatedUser) => {
+        setUser(authenticatedUser);
+        if (
+          authenticatedUser.role !== "ADMIN" &&
+          (active === "dashboard" || active === "audit")
+        ) {
+          router.replace("/files/available");
+        }
+      })
+      .catch(() => undefined);
+  }, [active, router]);
 
   const closeSession = async () => {
     setIsLoggingOut(true);
@@ -61,18 +71,22 @@ export default function AppHeader({ active }: AppHeaderProps) {
         >
           Historial
         </a>
-        <a
-          className={`nav-link ${active === "dashboard" ? "nav-link--active" : ""}`}
-          href="/dashboard"
-        >
-          Dashboard
-        </a>
-        <a
-          className={`nav-link ${active === "audit" ? "nav-link--active" : ""}`}
-          href="/audit"
-        >
-          Auditoría
-        </a>
+        {user?.role === "ADMIN" ? (
+          <>
+            <a
+              className={`nav-link ${active === "dashboard" ? "nav-link--active" : ""}`}
+              href="/dashboard"
+            >
+              Dashboard
+            </a>
+            <a
+              className={`nav-link ${active === "audit" ? "nav-link--active" : ""}`}
+              href="/audit"
+            >
+              Auditoría
+            </a>
+          </>
+        ) : null}
       </nav>
 
       <div className="environment-status" aria-label="Sesión actual">
