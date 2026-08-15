@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getAvailableFiles, processFile, getFileProgress, uploadCsv, type FileProgressResponse } from "../../../lib/api";
+import AppHeader from "../../components/AppHeader";
 
 const MAX_CSV_SIZE_BYTES = 52_428_800;
 const CSV_FILE_PATTERN = /^transactions_(\d{2})(\d{2})(\d{4})\.csv$/i;
@@ -215,42 +216,7 @@ export default function AvailableFilesPage() {
 
   return (
     <div className="application-shell">
-      <header className="topbar">
-        <a className="brand" href="/files/available" aria-label="iBatch, inicio">
-          <span className="brand-mark" aria-hidden="true">
-            <span className="brand-mark__navy" />
-            <span className="brand-mark__teal" />
-            <span className="brand-mark__copper" />
-          </span>
-          <span className="brand-copy">
-            <strong>iBatch</strong>
-            <small>Financial Operations</small>
-          </span>
-        </a>
-
-        <nav className="primary-navigation" aria-label="Navegación principal">
-          <a className="nav-link nav-link--active" href="/files/available">
-            Operaciones
-          </a>
-          <a className="nav-link" href="/files">
-            Historial
-          </a>
-          <a className="nav-link" href="/dashboard">
-            Dashboard
-          </a>
-          <a className="nav-link" href="/audit">
-            Auditoría
-          </a>
-        </nav>
-
-        <div className="environment-status" aria-label="Estado del sistema">
-          <span className="status-dot" aria-hidden="true" />
-          <span>
-            <small>Ambiente local</small>
-            <strong>Operativo</strong>
-          </span>
-        </div>
-      </header>
+      <AppHeader active="operations" />
 
       <main>
         <section className="page-intro">

@@ -1,3 +1,10 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+import { getAuthenticatedUser, logout, type AuthenticatedUserResponse } from "../../lib/api";
+
 type ActiveNavigation = "operations" | "history" | "dashboard" | "audit";
 
 type AppHeaderProps = {
@@ -5,6 +12,28 @@ type AppHeaderProps = {
 };
 
 export default function AppHeader({ active }: AppHeaderProps) {
+  const router = useRouter();
+  const [user, setUser] = useState<AuthenticatedUserResponse | null>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutFailed, setLogoutFailed] = useState(false);
+
+  useEffect(() => {
+    void getAuthenticatedUser().then(setUser).catch(() => undefined);
+  }, []);
+
+  const closeSession = async () => {
+    setIsLoggingOut(true);
+    setLogoutFailed(false);
+    try {
+      await logout();
+      router.replace("/login");
+      router.refresh();
+    } catch {
+      setLogoutFailed(true);
+      setIsLoggingOut(false);
+    }
+  };
+
   return (
     <header className="topbar">
       <a className="brand" href="/files/available" aria-label="iBatch, inicio">
@@ -46,12 +75,31 @@ export default function AppHeader({ active }: AppHeaderProps) {
         </a>
       </nav>
 
-      <div className="environment-status" aria-label="Estado del sistema">
+      <div className="environment-status" aria-label="Sesión actual">
         <span className="status-dot" aria-hidden="true" />
-        <span>
-          <small>Ambiente local</small>
-          <strong>Operativo</strong>
+        <span className="session-identity" aria-live="polite">
+          <small>
+            {user?.role === "ADMIN"
+              ? "Administrador"
+              : user?.role === "OPERATOR"
+                ? "Operador"
+                : "Sesión"}
+          </small>
+          <strong title={user?.username}>{user?.username ?? "Verificando acceso"}</strong>
         </span>
+        {user ? (
+          <button
+            type="button"
+            className="logout-button"
+            disabled={isLoggingOut}
+            onClick={closeSession}
+          >
+            {isLoggingOut ? "Saliendo..." : logoutFailed ? "Reintentar" : "Salir"}
+          </button>
+        ) : null}
+        {logoutFailed ? (
+          <span className="sr-only" role="alert">No se pudo cerrar la sesión. Inténtelo nuevamente.</span>
+        ) : null}
       </div>
     </header>
   );

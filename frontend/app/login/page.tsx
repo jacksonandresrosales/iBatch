@@ -1,14 +1,33 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
+
+import { login } from "../../lib/api";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const submitLogin = (event: FormEvent<HTMLFormElement>) => {
+  const submitLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setNotice("La interfaz está lista. La autenticación se conectará en la siguiente etapa.");
+    const formData = new FormData(event.currentTarget);
+    const username = String(formData.get("username") ?? "").trim();
+    const password = String(formData.get("password") ?? "");
+
+    setIsSubmitting(true);
+    setNotice(null);
+    try {
+      await login(username, password);
+      router.replace("/files/available");
+      router.refresh();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "No se pudo iniciar sesión");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -67,15 +86,17 @@ export default function LoginPage() {
             <p>Ingresa con las credenciales asignadas para continuar al panel operativo.</p>
           </div>
 
-          <form className="login-form" onSubmit={submitLogin}>
+          <form className="login-form" aria-busy={isSubmitting} onSubmit={submitLogin}>
             <div className="login-field">
-              <label htmlFor="username">Usuario o correo electrónico</label>
+              <label htmlFor="username">Usuario</label>
               <input
                 id="username"
                 name="username"
                 type="text"
                 autoComplete="username"
-                placeholder="nombre@empresa.com"
+                placeholder="Ingresa tu usuario"
+                maxLength={100}
+                disabled={isSubmitting}
                 required
               />
             </div>
@@ -88,6 +109,7 @@ export default function LoginPage() {
                   className="login-password-toggle"
                   aria-controls="password"
                   aria-pressed={showPassword}
+                  disabled={isSubmitting}
                   onClick={() => setShowPassword((current) => !current)}
                 >
                   {showPassword ? "Ocultar" : "Mostrar"}
@@ -99,18 +121,20 @@ export default function LoginPage() {
                 type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
                 placeholder="Ingresa tu contraseña"
+                maxLength={72}
+                disabled={isSubmitting}
                 required
               />
             </div>
 
             {notice ? (
-              <p className="login-notice" role="status" aria-live="polite">
+              <p className="login-notice login-notice--error" role="alert">
                 {notice}
               </p>
             ) : null}
 
-            <button type="submit" className="login-submit">
-              Ingresar al sistema
+            <button type="submit" className="login-submit" disabled={isSubmitting}>
+              {isSubmitting ? "Validando acceso..." : "Ingresar al sistema"}
             </button>
           </form>
 
