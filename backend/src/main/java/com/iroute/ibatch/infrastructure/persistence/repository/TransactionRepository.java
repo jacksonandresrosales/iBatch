@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -16,6 +17,7 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 
 import com.iroute.ibatch.domain.model.CsvTransactionRow;
@@ -31,12 +33,15 @@ public class TransactionRepository {
 
     private final JdbcTemplate jdbcTemplate;
     private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+    private final String databaseVendor;
 
     public TransactionRepository(
             JdbcTemplate jdbcTemplate,
-            NamedParameterJdbcTemplate namedParameterJdbcTemplate) {
+            NamedParameterJdbcTemplate namedParameterJdbcTemplate,
+            @Value("${app.database.vendor:mysql}") String databaseVendor) {
         this.jdbcTemplate = jdbcTemplate;
         this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
+        this.databaseVendor = databaseVendor.strip().toLowerCase(Locale.ROOT);
     }
 
     public boolean existsProcessedUniqueKey(String processedUniqueKey) {
@@ -113,8 +118,14 @@ public class TransactionRepository {
             return;
         }
 
+        var insertPrefix = ignoreDuplicates && "mysql".equals(databaseVendor)
+                ? "INSERT IGNORE"
+                : "INSERT";
+        var conflictClause = ignoreDuplicates && "postgresql".equals(databaseVendor)
+                ? "ON CONFLICT (processed_unique_key) DO NOTHING"
+                : "";
         var sql = """
-                INSERT %s INTO transactions (
+                %s INTO transactions (
                     file_id,
                     line_number,
                     raw_account,
@@ -138,8 +149,8 @@ public class TransactionRepository {
                     :transactionStatusId,
                     :processedUniqueKey,
                     1
-                )
-                """.formatted(ignoreDuplicates ? "IGNORE" : "");
+                ) %s
+                """.formatted(insertPrefix, conflictClause);
         SqlParameterSource[] parameters = rows.stream()
                 .map(row -> new MapSqlParameterSource()
                         .addValue("fileId", fileId)
@@ -243,7 +254,7 @@ public class TransactionRepository {
                         ON ts.transaction_status_id = t.transaction_status_id
                 WHERE t.file_id = :fileId
                   AND (:status IS NULL OR ts.code = :status)
-                  AND (:account IS NULL OR LOCATE(:account, COALESCE(t.account, t.raw_account, '')) > 0)
+                  AND (:account IS NULL OR POSITION(:account IN COALESCE(t.account, t.raw_account, '')) > 0)
                 ORDER BY t.line_number ASC, t.transaction_id ASC
                 LIMIT :size OFFSET :offset
                 """;
@@ -265,7 +276,7 @@ public class TransactionRepository {
                         ON ts.transaction_status_id = t.transaction_status_id
                 WHERE t.file_id = :fileId
                   AND (:status IS NULL OR ts.code = :status)
-                  AND (:account IS NULL OR LOCATE(:account, COALESCE(t.account, t.raw_account, '')) > 0)
+                  AND (:account IS NULL OR POSITION(:account IN COALESCE(t.account, t.raw_account, '')) > 0)
                 """;
         var parameters = new MapSqlParameterSource()
                 .addValue("fileId", fileId)

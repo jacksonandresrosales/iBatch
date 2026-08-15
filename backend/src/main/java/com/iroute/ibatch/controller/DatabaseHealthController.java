@@ -28,18 +28,18 @@ public class DatabaseHealthController {
     public ResponseEntity<DatabaseHealthResponse> health() {
         try (Connection connection = dataSource.getConnection()) {
             var metadata = connection.getMetaData();
-            var response = new DatabaseHealthResponse(
+                var response = new DatabaseHealthResponse(
                     true,
-                    "Conexion con MySQL disponible",
+                    "Conexion con la base de datos disponible",
                     metadata.getDatabaseProductName(),
                     metadata.getURL(),
                     OffsetDateTime.now());
 
             return ResponseEntity.ok(response);
         } catch (SQLException exception) {
-            var response = new DatabaseHealthResponse(
+                var response = new DatabaseHealthResponse(
                     false,
-                    "No se pudo conectar con MySQL: " + exception.getMessage(),
+                    "No se pudo conectar con la base de datos: " + exception.getMessage(),
                     null,
                     null,
                     OffsetDateTime.now());

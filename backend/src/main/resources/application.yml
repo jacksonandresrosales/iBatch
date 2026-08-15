@@ -25,7 +25,7 @@ spring:
     url: ${DB_URL:jdbc:mysql://localhost:3306/ibatch?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:}
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    driver-class-name: ${DB_DRIVER:com.mysql.cj.jdbc.Driver}
     hikari:
       maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
       minimum-idle: ${DB_POOL_MIN_IDLE:2}
@@ -33,6 +33,8 @@ spring:
       validation-timeout: 5000
 
 app:
+  database:
+    vendor: ${DB_VENDOR:mysql}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
   files:
