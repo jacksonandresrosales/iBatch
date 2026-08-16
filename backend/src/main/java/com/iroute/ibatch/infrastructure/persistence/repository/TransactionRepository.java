@@ -244,8 +244,9 @@ public class TransactionRepository {
                 INNER JOIN transaction_status ts
                         ON ts.transaction_status_id = t.transaction_status_id
                 WHERE t.file_id = :fileId
-                  AND (:status IS NULL OR ts.code = :status)
-                  AND (:account IS NULL OR POSITION(:account IN COALESCE(t.account, t.raw_account, '')) > 0)
+                  AND (CAST(:status AS VARCHAR) IS NULL OR ts.code = CAST(:status AS VARCHAR))
+                  AND (CAST(:account AS VARCHAR) IS NULL
+                       OR POSITION(CAST(:account AS VARCHAR) IN COALESCE(t.account, t.raw_account, '')) > 0)
                 ORDER BY t.line_number ASC, t.transaction_id ASC
                 LIMIT :size OFFSET :offset
                 """;
@@ -266,8 +267,9 @@ public class TransactionRepository {
                 INNER JOIN transaction_status ts
                         ON ts.transaction_status_id = t.transaction_status_id
                 WHERE t.file_id = :fileId
-                  AND (:status IS NULL OR ts.code = :status)
-                  AND (:account IS NULL OR POSITION(:account IN COALESCE(t.account, t.raw_account, '')) > 0)
+                  AND (CAST(:status AS VARCHAR) IS NULL OR ts.code = CAST(:status AS VARCHAR))
+                  AND (CAST(:account AS VARCHAR) IS NULL
+                       OR POSITION(CAST(:account AS VARCHAR) IN COALESCE(t.account, t.raw_account, '')) > 0)
                 """;
         var parameters = new MapSqlParameterSource()
                 .addValue("fileId", fileId)
