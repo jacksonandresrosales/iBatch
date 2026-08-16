@@ -25,7 +25,7 @@ La aplicación se utiliza desde un navegador web y trabaja con archivos `transac
 ## Capabilities and Constraints
 
 - Frontend en Next.js y backend en Spring Boot con Java 21.
-- Persistencia en MySQL.
+- Persistencia en PostgreSQL mediante Supabase.
 - Los archivos CSV usan los encabezados `cuenta,monto,fecha`.
 - El proyecto se desplegará con opciones de bajo costo o gratuitas.
 - El acceso público sin autenticación es una limitación actual que se resolverá con el nuevo flujo de login.

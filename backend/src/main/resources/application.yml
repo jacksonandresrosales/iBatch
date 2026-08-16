@@ -1,12 +1,12 @@
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${PORT:${SERVER_PORT:8080}}
   servlet:
     session:
       timeout: ${SESSION_TIMEOUT:30m}
       cookie:
         http-only: true
         secure: ${SESSION_COOKIE_SECURE:false}
-        same-site: lax
+        same-site: ${SESSION_COOKIE_SAME_SITE:lax}
   compression:
     enabled: true
     mime-types: application/json,text/plain
@@ -22,10 +22,10 @@ spring:
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/ibatch?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
-    username: ${DB_USERNAME:root}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/ibatch}
+    username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:}
-    driver-class-name: ${DB_DRIVER:com.mysql.cj.jdbc.Driver}
+    driver-class-name: ${DB_DRIVER:org.postgresql.Driver}
     hikari:
       maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
       minimum-idle: ${DB_POOL_MIN_IDLE:2}
@@ -33,8 +33,6 @@ spring:
       validation-timeout: 5000
 
 app:
-  database:
-    vendor: ${DB_VENDOR:mysql}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
   files:

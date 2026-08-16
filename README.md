@@ -8,18 +8,18 @@ El proyecto se organiza como una aplicación web con dos componentes:
 
 - `frontend`: Next.js y React con actualización periódica de progreso, dashboard, historial y auditoría.
 - `backend`: Spring Boot con procesamiento asíncrono, validaciones por estrategia, escritura por lotes y API REST.
-- `database`: scripts SQL para crear el esquema de MySQL y sus índices.
+- `database/postgresql`: scripts SQL para crear el esquema PostgreSQL y sus índices.
 
 ## Requisitos
 
 - Java 21
 - Maven 3.9 o superior
 - Node.js 20 o superior
-- MySQL 8
+- PostgreSQL 15 o Supabase
 
 ## Configuración local
 
-1. Ejecute `database/001_create_database.sql` y después los demás scripts SQL en orden numérico.
+1. Ejecute los scripts de `database/postgresql` en orden numérico.
 2. Configure las variables `DB_USERNAME` y `DB_PASSWORD`. Opcionalmente puede definir `DB_URL`.
 3. Inicie el backend desde `backend` con `mvn spring-boot:run`.
 4. Instale las dependencias del frontend con `npm install` dentro de `frontend`.

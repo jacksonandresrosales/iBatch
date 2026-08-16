@@ -6,7 +6,7 @@ Backend Spring Boot para exponer la API que consumirá el frontend.
 
 - Java 21
 - Maven 3.9+
-- MySQL local
+- PostgreSQL local o Supabase
 - JDK 21 activo en `JAVA_HOME`
 
 ## Variables de entorno
@@ -14,15 +14,17 @@ Backend Spring Boot para exponer la API que consumirá el frontend.
 Valores por defecto para desarrollo local:
 
 ```powershell
-$env:DB_URL="jdbc:mysql://localhost:3306/ibatch?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
-$env:DB_USERNAME="root"
-$env:DB_PASSWORD=""
+$env:DB_URL="jdbc:postgresql://localhost:5432/ibatch"
+$env:DB_USERNAME="postgres"
+$env:DB_PASSWORD="tu-contrasena"
+$env:DB_DRIVER="org.postgresql.Driver"
 $env:CORS_ALLOWED_ORIGINS="http://localhost:3000"
 $env:IBATCH_ADMIN_USERNAME="admin"
 $env:IBATCH_ADMIN_PASSWORD="una-contrasena-inicial-segura"
 $env:IBATCH_OPERATOR_USERNAME="operator"
 $env:IBATCH_OPERATOR_PASSWORD="otra-contrasena-inicial-segura"
 $env:SESSION_COOKIE_SECURE="false"
+$env:SESSION_COOKIE_SAME_SITE="lax"
 $env:APP_FILES_INPUT_DIR="C:\iroute\input"
 $env:MAX_FILE_SIZE_BYTES="52428800"
 $env:MAX_FILE_RECORDS="1000000"
@@ -44,13 +46,11 @@ La carpeta `backend/input` es local de pruebas y no se sube al repositorio.
 
 ## Base de datos
 
-Ejecuta los scripts de la carpeta `database` en orden:
+Ejecuta los scripts de la carpeta `database/postgresql` en orden:
 
 ```text
-001_create_database.sql
-002_create_batch_processing_model.sql
-003_add_performance_indexes.sql
-004_add_authentication.sql
+001_create_batch_processing_model.sql
+002_add_authentication.sql
 ```
 
 ## Ejecutar
@@ -60,6 +60,17 @@ cd backend
 mvn spring-boot:run
 ```
 
+## Ejecutar con Docker
+
+Desde la carpeta `backend`:
+
+```powershell
+docker build -t ibatch-backend:local .
+docker run --rm -p 8080:8080 --env-file .env.local ibatch-backend:local
+```
+
+Para Render, configure `backend` como directorio raíz, `Dockerfile` como archivo Docker y `/api/health` como health check. Las variables de PostgreSQL, Supabase, CORS y las contraseñas iniciales deben configurarse como secretos desde el panel del servicio.
+
 ## Endpoints iniciales
 
 - `GET /api/health`: valida que el backend esta levantado.
@@ -67,9 +78,9 @@ mvn spring-boot:run
 - `POST /auth/login`: inicia sesion con usuario y contrasena.
 - `POST /auth/logout`: cierra la sesion autenticada.
 - `GET /auth/me`: devuelve el usuario autenticado.
-- `GET /api/health/database`: valida MySQL; requiere rol `ADMIN`.
+- `GET /api/health/database`: valida PostgreSQL; requiere rol `ADMIN`.
 - `GET /files/available`: lista los CSV disponibles en el directorio configurado.
-- `GET /files`: lista los archivos procesados registrados en MySQL.
+- `GET /files`: lista los archivos procesados registrados en PostgreSQL.
 - `GET /files/{id}`: devuelve el detalle del archivo y sus transacciones.
 - `GET /files/{id}/progress`: consulta el avance del procesamiento.
 - `POST /files/process`: valida, registra y procesa el archivo seleccionado de forma asíncrona.
