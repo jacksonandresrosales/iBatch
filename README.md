@@ -36,13 +36,13 @@ El proyecto está construido como una solución full stack con separación de re
 
 El acceso a las áreas operativas requiere una cuenta habilitada.
 
-Cuenta administrador: 
-usuario: admin
-contraseña: Administrador123@
-
-Cuenta operador: 
-usuario: operator
-contraseña: Operador123@
+### Credenciales de acceso
+**Cuenta administrador:**
+- Usuario: admin
+- Contraseña: `Administrador123@`
+**Cuenta operador:**
+- Usuario:** operator
+- Contraseña: `Operador123@`
 
 <div align="center">
   <img src="docs/images/login.png" alt="Pantalla de acceso de iBatch" width="100%" />
