@@ -34,7 +34,15 @@ El proyecto está construido como una solución full stack con separación de re
 - **Backend:** [ibatch.onrender.com](https://ibatch.onrender.com)
 - **Health check:** [ibatch.onrender.com/api/health](https://ibatch.onrender.com/api/health)
 
-El acceso a las áreas operativas requiere una cuenta habilitada. Las credenciales y secretos de producción no forman parte del repositorio.
+El acceso a las áreas operativas requiere una cuenta habilitada.
+
+Cuenta administrador: 
+usuario: admin
+contraseña: Administrador123@
+
+Cuenta operador: 
+usuario: operator
+contraseña: Operador123@
 
 <div align="center">
   <img src="docs/images/login.png" alt="Pantalla de acceso de iBatch" width="100%" />
